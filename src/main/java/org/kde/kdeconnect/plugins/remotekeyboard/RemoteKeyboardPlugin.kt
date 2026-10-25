@@ -141,7 +141,12 @@ class RemoteKeyboardPlugin : Plugin() {
         val focus = KdeConnectAccessibilityService.instance?.findFocus(FOCUS_INPUT)
         if (focus == null) {
             val specialKey = SpecialKeys.fromInt(sKey)
-            if (specialKey == SpecialKeys.TAB) {
+            if (specialKey == SpecialKeys.ESCAPE) {
+                return KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) == true
+            }
+            // Arrows also grab initial focus so D-pad-only (keypad) devices can be navigated
+            if (specialKey == SpecialKeys.TAB || specialKey == SpecialKeys.DPAD_LEFT || specialKey == SpecialKeys.DPAD_RIGHT
+                || specialKey == SpecialKeys.DPAD_UP || specialKey == SpecialKeys.DPAD_DOWN) {
                 KdeConnectAccessibilityService.instance?.findNodeByAction(
                     KdeConnectAccessibilityService.instance?.rootInActiveWindow,
                     AccessibilityNodeInfo.AccessibilityAction.ACTION_FOCUS
@@ -263,25 +268,25 @@ class RemoteKeyboardPlugin : Plugin() {
             SpecialKeys.DPAD_LEFT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_LEFT)
             } else {
-                moveCursor(focus, false)
+                legacyArrow(focus, specialKey)
             }
 
             SpecialKeys.DPAD_RIGHT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_RIGHT)
             } else {
-                moveCursor(focus, true)
+                legacyArrow(focus, specialKey)
             }
 
             SpecialKeys.DPAD_UP -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_UP)
             } else {
-                moveCursor(focus, forward = false, Movement.LINE)
+                legacyArrow(focus, specialKey)
             }
 
             SpecialKeys.DPAD_DOWN -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_DOWN)
             } else {
-                moveCursor(focus, forward = true, Movement.LINE)
+                legacyArrow(focus, specialKey)
             }
 
             SpecialKeys.ENTER -> {
@@ -297,8 +302,10 @@ class RemoteKeyboardPlugin : Plugin() {
             SpecialKeys.ESCAPE -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-                } else {
+                } else if (focus.isEditable) {
                     focus.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
+                } else {
+                    KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
                 }
             }
 
@@ -316,6 +323,27 @@ class RemoteKeyboardPlugin : Plugin() {
         } else {
             focus.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         }
+    }
+
+    /**
+     * Before Android 13 accessibility services can't send D-pad presses. Arrows move the
+     * cursor inside text (up/down only in multi-line fields); otherwise they move input
+     * focus in that direction, so focus-based UIs (keypad phones, TVs) stay navigable.
+     */
+    private fun legacyArrow(focus: AccessibilityNodeInfo, key: SpecialKeys) {
+        val vertical = key == SpecialKeys.DPAD_UP || key == SpecialKeys.DPAD_DOWN
+        val forward = key == SpecialKeys.DPAD_RIGHT || key == SpecialKeys.DPAD_DOWN
+        if (focus.isEditable && (!vertical || focus.isMultiLine)) {
+            moveCursor(focus, forward, if (vertical) Movement.LINE else Movement.CHARACTER)
+            return
+        }
+        val direction = when (key) {
+            SpecialKeys.DPAD_LEFT -> View.FOCUS_LEFT
+            SpecialKeys.DPAD_RIGHT -> View.FOCUS_RIGHT
+            SpecialKeys.DPAD_UP -> View.FOCUS_UP
+            else -> View.FOCUS_DOWN
+        }
+        focus.focusSearch(direction)?.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
     }
 
     private fun moveFocus(

@@ -14,6 +14,9 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **SMS / text messaging from the desktop.** Upstream hid this plugin on anything older than Android 8. It's enabled again on Android 7. This also fixes a crash when a conversation with a video MMS synced: older Android couldn't build the video preview image the way the app was doing it.
 - **Remote keyboard (accessibility version).** Upstream hid this plugin on anything older than Android 8. It's now available on Android 7.
   - Enter used to do nothing on Android 10 and older. It now adds a new line in multi-line text boxes and otherwise taps the focused item.
+  - **Keypad-phone navigation from the computer keyboard.** On Android 12 and older, the arrow keys used to move only the text cursor, and did nothing outside a text box. They now move the highlight between buttons and list items, like the phone's own D-pad. Inside a text box, left/right still move the cursor, and up/down jump out of single-line boxes.
+  - With nothing highlighted, an arrow key now picks the first item.
+  - Esc now acts as Back, except inside a text box, where it leaves the box.
 - **Remote mouse: drag and drop.** On Android 7, holding the mouse button used to do only a long-press. You can now drag. Because of an Android 7 limit, the drag plays out on the phone when you let go of the button, not live while you move.
 - **Receiving files.** Files sent from the computer keep their original "last modified" date on Android 7, as they already did on newer Android.
 
