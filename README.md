@@ -1,3 +1,24 @@
+# KDE Connect for keypad phones (com.android.cts.kdeconnect)
+
+A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no touchscreen at all**, like the Kyocera Cadence S2720 flip phone. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from a 240×320, 160 dpi emulator with no touchscreen, the same as the Cadence.
+
+The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
+- **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key.
+- **Focus:** an orange focus ring hugs the highlighted control, and every screen opens with something already highlighted.
+- **Space:** on-screen buttons the soft keys replace are removed to save room.
+
+Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed, and run `cadence-adb-setup.sh` once to grant permissions a keypad phone can't open on its own.
+
+<table>
+  <tr><td align="center" width="25%"><img src="screenshots/keypad/01-device-list.png" width="200" alt="Device list"><br><b>Device list</b><br><sub>opens with the first device focused</sub><br><sub><code>(open app)</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/02-list-options.png" width="200" alt="Options menu"><br><b>Options menu</b><br><sub>sits on the soft-key bar</sub><br><sub><code>Left soft key</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/03-device.png" width="200" alt="Device"><br><b>Device</b><br><sub>first plugin focused</sub><br><sub><code>OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/04-device-options.png" width="200" alt="Device options"><br><b>Device options</b><br><sub>Ring, ping, plugin settings, unpair…</sub><br><sub><code>Left soft key</code></sub></td></tr>
+  <tr><td align="center" width="25%"><img src="screenshots/keypad/05-media.png" width="200" alt="Media remote"><br><b>Media remote</b><br><sub>Play/Pause on the right key</sub><br><sub><code>→ OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/06-keypad-mouse.png" width="200" alt="Keypad mouse"><br><b>Keypad mouse</b><br><sub>the keypad drives the PC pointer</sub><br><sub><code>↓ OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/07-keypad-mouse-options.png" width="200" alt="Keypad mouse options"><br><b>Keypad mouse options</b><br><sub>keyboard, compose, settings</sub><br><sub><code>Left soft key</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/08-compose-text.png" width="200" alt="Compose text"><br><b>Compose text</b><br><sub>Clear / Send on the soft keys</sub><br><sub><code>Options → Compose text</code></sub></td></tr>
+  <tr><td align="center" width="25%"><img src="screenshots/keypad/09-add-device.png" width="200" alt="Add device by IP"><br><b>Add device by IP</b><br><sub>dialog opens focused</sub><br><sub><code>Options → Add devices by IP → Add device</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/10-plugin-settings.png" width="200" alt="Plugin settings"><br><b>Plugin settings</b><br><sub>ring hugs the toggle</sub><br><sub><code>Options → Plugin settings</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/11-settings.png" width="200" alt="Settings"><br><b>Settings</b><br><sub>soft-key switch and calibration</sub><br><sub><code>Options → Settings</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/12-share.png" width="200" alt="Share to a device"><br><b>Share to a device</b><br><sub>first device focused</sub><br><sub><code>Share from any app</code></sub></td></tr>
+</table>
+
+Each caption shows the keys used to open that screen.
+
+---
+
 # KDE Connect - Android app
 
 KDE Connect is a multi-platform app that allows your devices to communicate (eg: your phone and your computer).

@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
@@ -132,6 +133,8 @@ class PluginSettingsListFragment : PreferenceFragmentCompat() {
     }
 
     override fun onPause() {
+        // A plugin's own settings page replaces this list in the same activity and has no menu
+        KeypadSoftkeys.clear(requireActivity())
         super.onPause()
         stateSaved = false
     }
@@ -139,6 +142,8 @@ class PluginSettingsListFragment : PreferenceFragmentCompat() {
     override fun onResume() {
         super.onResume()
         requireActivity().title = getString(R.string.device_menu_plugins)
+        // Keypad soft keys: this list's overflow menu moves to LEFT Options
+        KeypadSoftkeys.bind(requireActivity(), KeypadSoftkeys.menuOptionsKey(requireActivity()), null)
     }
 
     override fun onDestroyView() {
