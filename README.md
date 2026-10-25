@@ -9,13 +9,25 @@ The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpa
 
 Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed, and run `cadence-adb-setup.sh` once to grant permissions a keypad phone can't open on its own.
 
-<table>
-  <tr><td align="center" width="25%"><img src="screenshots/keypad/01-device-list.png" width="200" alt="Device list"><br><b>Device list</b><br><sub>opens with the first device focused</sub><br><sub><code>(open app)</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/02-list-options.png" width="200" alt="Options menu"><br><b>Options menu</b><br><sub>sits on the soft-key bar</sub><br><sub><code>Left soft key</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/03-device.png" width="200" alt="Device"><br><b>Device</b><br><sub>first plugin focused</sub><br><sub><code>OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/04-device-options.png" width="200" alt="Device options"><br><b>Device options</b><br><sub>Ring, ping, plugin settings, unpair…</sub><br><sub><code>Left soft key</code></sub></td></tr>
-  <tr><td align="center" width="25%"><img src="screenshots/keypad/05-media.png" width="200" alt="Media remote"><br><b>Media remote</b><br><sub>Play/Pause on the right key</sub><br><sub><code>→ OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/06-keypad-mouse.png" width="200" alt="Keypad mouse"><br><b>Keypad mouse</b><br><sub>the keypad drives the PC pointer</sub><br><sub><code>↓ OK</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/07-keypad-mouse-options.png" width="200" alt="Keypad mouse options"><br><b>Keypad mouse options</b><br><sub>keyboard, compose, settings</sub><br><sub><code>Left soft key</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/08-compose-text.png" width="200" alt="Compose text"><br><b>Compose text</b><br><sub>Clear / Send on the soft keys</sub><br><sub><code>Options → Compose text</code></sub></td></tr>
-  <tr><td align="center" width="25%"><img src="screenshots/keypad/09-add-device.png" width="200" alt="Add device by IP"><br><b>Add device by IP</b><br><sub>dialog opens focused</sub><br><sub><code>Options → Add devices by IP → Add device</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/10-plugin-settings.png" width="200" alt="Plugin settings"><br><b>Plugin settings</b><br><sub>ring hugs the toggle</sub><br><sub><code>Options → Plugin settings</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/11-settings.png" width="200" alt="Settings"><br><b>Settings</b><br><sub>soft-key switch and calibration</sub><br><sub><code>Options → Settings</code></sub></td><td align="center" width="25%"><img src="screenshots/keypad/12-share.png" width="200" alt="Share to a device"><br><b>Share to a device</b><br><sub>first device focused</sub><br><sub><code>Share from any app</code></sub></td></tr>
+<table align="center">
+  <tr><td align="center"><img src="screenshots/keypad/01-device-list.png" width="160" alt="Device list"><br><sub>1. Device list</sub></td><td align="center"><img src="screenshots/keypad/02-list-options.png" width="160" alt="Options menu"><br><sub>2. Options menu</sub></td><td align="center"><img src="screenshots/keypad/03-device.png" width="160" alt="Device"><br><sub>3. Device</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/04-device-options.png" width="160" alt="Device options"><br><sub>4. Device options</sub></td><td align="center"><img src="screenshots/keypad/05-media.png" width="160" alt="Media remote"><br><sub>5. Media remote</sub></td><td align="center"><img src="screenshots/keypad/06-keypad-mouse.png" width="160" alt="Keypad mouse"><br><sub>6. Keypad mouse</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/07-keypad-mouse-options.png" width="160" alt="Mouse options"><br><sub>7. Mouse options</sub></td><td align="center"><img src="screenshots/keypad/08-compose-text.png" width="160" alt="Compose text"><br><sub>8. Compose text</sub></td><td align="center"><img src="screenshots/keypad/09-add-device.png" width="160" alt="Add device"><br><sub>9. Add device</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/10-plugin-settings.png" width="160" alt="Plugin settings"><br><sub>10. Plugin settings</sub></td><td align="center"><img src="screenshots/keypad/11-settings.png" width="160" alt="Settings"><br><sub>11. Settings</sub></td><td align="center"><img src="screenshots/keypad/12-share.png" width="160" alt="Share"><br><sub>12. Share</sub></td></tr>
 </table>
 
-Each caption shows the keys used to open that screen.
+1. **Device list**: opens with the first device focused (open the app)
+2. **Options menu**: on top of the soft-key bar (Left soft key)
+3. **Device**: first plugin focused (OK)
+4. **Device options**: ring, ping, plugin settings, unpair (Left soft key)
+5. **Media remote**: Play/Pause on the right key (→ OK)
+6. **Keypad mouse**: the keypad drives the PC pointer (↓ OK)
+7. **Keypad mouse options**: keyboard, compose, settings (Left soft key)
+8. **Compose text**: Clear / Send on the soft keys (Options → Compose text)
+9. **Add device by IP**: dialog opens focused (Options → Add devices by IP → Add device)
+10. **Plugin settings**: the ring hugs the toggle (Options → Plugin settings)
+11. **Settings**: soft-key switch and calibration (Options → Settings)
+12. **Share**: first device focused (share from any app)
 
 ---
 
