@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.compose.screen.share
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,7 +105,8 @@ private fun ShareScreenContent(
                 KdeCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 8.dp)
+                        .then(if (device === devices.first()) Modifier.keypadAutoFocus() else Modifier),
                     content = { ShareScreenCardContent(device = device) },
                     onClick = { onDeviceClick(device.id) }
                 )

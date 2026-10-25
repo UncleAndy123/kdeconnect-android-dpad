@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.ui.compose.screen.licenses
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
+import org.kde.kdeconnect.ui.keypad.keypadScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -86,7 +88,8 @@ fun LicensesScreen(
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        // Keypad phones: text-only, so the list itself is the focus stop and UP/DOWN scroll it
+        modifier = Modifier.fillMaxSize().keypadScroll(listState).keypadAutoFocus(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,

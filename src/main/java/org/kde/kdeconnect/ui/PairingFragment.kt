@@ -5,6 +5,9 @@
  */
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -114,6 +117,18 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             setContent {
                 KdeTheme(context) {
                     val state by viewModel.pairingUiState.collectAsStateWithLifecycle()
+                    // Keypad soft keys (vela-dpad model): LEFT = Options (this screen's menu plus the
+                    // drawer's Settings / About, since the toolbar is hidden), RIGHT = Refresh
+                    val main = mActivity as? MainActivity
+                    KeypadSoftkeys.Keys(
+                        left = main?.let { a ->
+                            KeypadSoftkeys.menuOptionsKey(a, listOf(
+                                SoftkeyOption(getString(R.string.settings)) { a.openSettings() },
+                                SoftkeyOption(getString(R.string.about)) { a.openAbout() },
+                            ), exclude = setOf(R.id.menu_refresh))
+                        },
+                        right = SoftKey(getString(R.string.refresh)) { viewModel.onRefresh() },
+                    )
 
                     PairingScreen(
                         uiState = state,

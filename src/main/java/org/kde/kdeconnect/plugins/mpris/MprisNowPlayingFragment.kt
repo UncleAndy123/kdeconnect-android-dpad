@@ -5,6 +5,8 @@
  */
 package org.kde.kdeconnect.plugins.mpris
 
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
@@ -196,6 +198,22 @@ class MprisNowPlayingFragment : Fragment(), VolumeKeyListener {
     override fun onResume() {
         super.onResume()
         KdeConnect.getInstance().getDevicePlugin<MprisPlugin>(deviceId)?.isControlActivityVisible = true
+        bindSoftkeys()
+    }
+
+    /** Keypad soft keys (vela-dpad model): LEFT = Options, RIGHT = Play/Pause (the primary action,
+     *  so the on-screen play button is dropped while the keys show). */
+    private fun bindSoftkeys() {
+        val activity = activity ?: return
+        val playing = targetPlayer?.isPlaying == true
+        KeypadSoftkeys.bind(
+            activity,
+            KeypadSoftkeys.menuOptionsKey(activity),
+            SoftKey(getString(if (playing) R.string.mpris_pause else R.string.mpris_play)) {
+                targetPlayer?.sendPlayPause()
+            },
+        )
+        mprisControlBinding.playButton.visibility = if (KeypadSoftkeys.hasKeys(activity)) View.GONE else View.VISIBLE
     }
 
     override fun onPause() {
@@ -359,6 +377,7 @@ class MprisNowPlayingFragment : Fragment(), VolumeKeyListener {
             mprisControlBinding.volumeSeek.isEnabled = false
         }
         val isPlaying = playerStatus.isPlaying
+        if (isResumed) bindSoftkeys() // relabel Play/Pause
         if (isPlaying) {
             mprisControlBinding.playButton.setIconResource(R.drawable.ic_pause_black)
             mprisControlBinding.playButton.isEnabled = playerStatus.isPauseAllowed

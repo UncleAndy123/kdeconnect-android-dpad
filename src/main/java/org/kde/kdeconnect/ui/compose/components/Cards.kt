@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.compose.components
 
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ fun KdeCard(
         modifier = modifier
             .fillMaxWidth()
             .padding(4.dp)
+            .keypadFocusRing(CardDefaults.shape)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(),
         elevation = CardDefaults.cardElevation(),

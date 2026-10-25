@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.ui.compose.screen.device
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -118,6 +121,7 @@ private fun PluginButtons(
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         val buttonIter = buttons.iterator()
+        val firstButton = buttons.firstOrNull()
 
         while (buttonIter.hasNext()) {
             Row(
@@ -132,7 +136,8 @@ private fun PluginButtons(
 
                         PluginButton(
                             button = button,
-                            modifier = Modifier.weight(1f),
+                            // Keypad phones: the screen opens with the first plugin focused
+                            modifier = Modifier.weight(1f).then(if (button === firstButton) Modifier.keypadAutoFocus() else Modifier),
                             onClick = { onButtonClick(button) }
                         )
                     } else {
@@ -153,7 +158,7 @@ private fun PluginButton(
 ) {
     Card(
         shape = MaterialTheme.shapes.medium,
-        modifier = modifier.semantics { role = Role.Button },
+        modifier = modifier.keypadFocusRing(MaterialTheme.shapes.medium).semantics { role = Role.Button },
         onClick = onClick
     ) {
         Column(
@@ -193,6 +198,7 @@ private fun PluginsWithoutPermissions(
             text = plugin.displayName,
             modifier = Modifier
                 .fillMaxWidth()
+                .keypadFocusRing(RoundedCornerShape(4.dp))
                 .clickable { action(plugin) }
                 .padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
                 .semantics { role = Role.Button }

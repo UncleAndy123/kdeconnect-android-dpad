@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.compose.screen.device
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,18 +34,21 @@ import org.kde.kdeconnect_tp.R
 @Composable
 fun DeviceErrorScreen(
     isRefreshing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    showRefreshButton: Boolean = true,
 ) {
     DeviceErrorScreenContent(
         isRefreshing = isRefreshing,
-        onRefresh = onRefresh
+        onRefresh = onRefresh,
+        showRefreshButton = showRefreshButton,
     )
 }
 
 @Composable
 private fun DeviceErrorScreenContent(
     isRefreshing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    showRefreshButton: Boolean = true,
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -71,11 +75,11 @@ private fun DeviceErrorScreenContent(
                     modifier = Modifier.weight(1f)
                 )
             }
-            // Pull-to-refresh needs touch; give keypad-only devices a focusable way to retry
-            KdeButton(
+            // Pull-to-refresh needs touch: a focusable retry, unless the RIGHT soft key already is one
+            if (showRefreshButton) KdeButton(
                 onClick = onRefresh,
                 text = stringResource(id = R.string.refresh),
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = 16.dp).keypadAutoFocus()
             )
         }
     }

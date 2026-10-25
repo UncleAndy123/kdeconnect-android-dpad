@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.compose
 
+import org.kde.kdeconnect.ui.keypad.keypadButtonRing
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -37,7 +38,7 @@ fun KdeTextButton(
 ) {
     TextButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.keypadButtonRing(ButtonDefaults.textShape),
         enabled = enabled,
         contentPadding = contentPadding,
         content = {
@@ -69,7 +70,7 @@ fun KdeButton(
 
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.keypadButtonRing(RoundedCornerShape(24.dp)),
 //        shape = RoundedCornerShape(cornerSize),
         shape = RoundedCornerShape(24.dp),
         colors = colors,

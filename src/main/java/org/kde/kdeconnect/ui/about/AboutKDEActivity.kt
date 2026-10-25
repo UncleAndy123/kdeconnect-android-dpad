@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.ui.about
 
+import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
+import androidx.compose.ui.Modifier
 import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -56,7 +58,7 @@ private fun AboutKDETopBar(
     TopAppBar(
         title = { Text(stringResource(R.string.about_kde)) },
         navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
+            IconButton(onClick = onNavigateBack, modifier = Modifier.keypadIconButtonRing()) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_back_black_24dp),
                     contentDescription = "Back"

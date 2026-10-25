@@ -1,5 +1,9 @@
 package org.kde.kdeconnect.plugins.runcommand
 
+import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
+import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import androidx.activity.OnBackPressedDispatcher
@@ -188,6 +192,7 @@ fun RunCommandScreen(
                                             )
                                         }
                                     }
+                                    .keypadFocusRing(RoundedCornerShape(4.dp))
                                     .combinedClickable(
                                         indication = ripple(),
                                         interactionSource = remember { MutableInteractionSource() },
@@ -309,7 +314,7 @@ private fun OutputCard(
                         horizontalAlignment = Alignment.End,
                         verticalArrangement = Arrangement.Bottom
                     ) {
-                        IconButton(onClick = { plugin.sendStop() }) {
+                        IconButton(onClick = { plugin.sendStop() }, modifier = Modifier.keypadIconButtonRing()) {
                             CircularProgressIndicator()
                             Icon(
                                 painterResource(R.drawable.ic_stop),
@@ -361,11 +366,13 @@ fun RunCommandAppBar(
 ) {
     val clearLabel = stringResource(R.string.runcommand_clear_output)
     val addLabel = stringResource(R.string.add_command)
+    val options = listOfNotNull(
+        onAddCommand?.let { SoftkeyOption(addLabel, it) },
+        if (showClearOutput) SoftkeyOption(clearLabel, onClearOutput) else null,
+    )
+    val activity = LocalActivity.current
     KdeTopAppBar(
-        softkeyOptions = listOfNotNull(
-            onAddCommand?.let { SoftkeyOption(addLabel, it) },
-            if (showClearOutput) SoftkeyOption(clearLabel, onClearOutput) else null,
-        ),
+        softkeyLeft = if (options.isNotEmpty() && activity != null) KeypadSoftkeys.optionsKey(activity, options) else null,
         title = stringResource(R.string.pref_plugin_runcommand),
         subTitle = subTitle,
         navIconOnClick = { onBackPressedDispatcher.onBackPressed() },
@@ -373,7 +380,7 @@ fun RunCommandAppBar(
         actions = {
             if (showClearOutput) {
                 var menuExpanded by remember { mutableStateOf(false) }
-                IconButton(onClick = { menuExpanded = true }) {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.keypadIconButtonRing()) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.extra_options))
                 }
                 DropdownMenu(

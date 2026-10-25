@@ -6,8 +6,8 @@
 
 package org.kde.kdeconnect.plugins.mousepad
 
+import org.kde.kdeconnect.ui.keypad.SoftKey
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -91,10 +91,8 @@ class ComposeSendActivity : KdeActivity() {
                 modifier = Modifier.safeDrawingPadding(),
                 topBar = {
                     KdeTopAppBar(
-                        softkeyOptions = listOf(
-                            SoftkeyOption(stringResource(R.string.send_compose)) { sendComposed() },
-                            SoftkeyOption(stringResource(R.string.clear_compose)) { clearComposeInput() },
-                        ),
+                        softkeyLeft = SoftKey(stringResource(R.string.clear_compose)) { clearComposeInput() },
+                        softkeyRight = SoftKey(stringResource(R.string.send_compose)) { sendComposed() },
                         title = stringResource(R.string.compose_send_title),
                         navIconOnClick = { onBackPressedDispatcher.onBackPressed() },
                         navIconDescription = getString(androidx.appcompat.R.string.abc_action_bar_up_description),

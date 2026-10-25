@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.plugins.share
 
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -54,6 +56,12 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
         } else {
             super.onOptionsItemSelected(item)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Keypad soft keys: LEFT = Refresh (this screen's only action; choosing a device is the content)
+        KeypadSoftkeys.bind(this, SoftKey(getString(R.string.refresh)) { refreshDevicesAction() }, null)
     }
 
     private fun refreshDevicesAction() {

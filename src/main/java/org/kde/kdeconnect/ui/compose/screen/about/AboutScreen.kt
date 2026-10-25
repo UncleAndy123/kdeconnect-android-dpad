@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.ui.compose.screen.about
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -264,6 +266,7 @@ private fun ActionIconTextButton(
     Column(
         modifier = Modifier
             .size(84.dp)
+            .keypadFocusRing(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(

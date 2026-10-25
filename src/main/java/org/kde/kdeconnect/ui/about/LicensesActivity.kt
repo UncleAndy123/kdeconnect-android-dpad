@@ -6,6 +6,11 @@
 
 package org.kde.kdeconnect.ui.about
 
+import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
+import androidx.activity.compose.LocalActivity
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import androidx.compose.ui.Modifier
 import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -76,10 +81,19 @@ private fun LicensesTopBar(
     onScrollToTop: () -> Unit,
     onScrollToBottom: () -> Unit
 ) {
+    // Keypad phones: the scroll shortcuts go to the soft key Options menu and the bar is dropped
+    val activity = LocalActivity.current
+    if (activity != null && KeypadSoftkeys.Keys(
+            left = KeypadSoftkeys.optionsKey(activity, listOf(
+                SoftkeyOption("Scroll to top", onScrollToTop),
+                SoftkeyOption("Scroll to bottom", onScrollToBottom),
+            )),
+            right = null,
+        )) return
     TopAppBar(
         title = { Text(stringResource(R.string.licenses)) },
         navigationIcon = {
-            IconButton(onClick = onNavigateBack) {
+            IconButton(onClick = onNavigateBack, modifier = Modifier.keypadIconButtonRing()) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_back_black_24dp),
                     contentDescription = "Back"
@@ -87,13 +101,13 @@ private fun LicensesTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onScrollToTop) {
+            IconButton(onClick = onScrollToTop, modifier = Modifier.keypadIconButtonRing()) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_upward_black_24dp),
                     contentDescription = "Scroll to top"
                 )
             }
-            IconButton(onClick = onScrollToBottom) {
+            IconButton(onClick = onScrollToBottom, modifier = Modifier.keypadIconButtonRing()) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_arrow_downward_black_24dp),
                     contentDescription = "Scroll to bottom"

@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.ui.compose.screen.aboutkde
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
+import org.kde.kdeconnect.ui.keypad.keypadScroll
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,8 +46,11 @@ import org.kde.kdeconnect_tp.R
 fun AboutKDEScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        // Keypad phones: text-only, so the list itself is the focus stop and UP/DOWN scroll it
+        modifier = Modifier.fillMaxSize().keypadScroll(listState).keypadAutoFocus(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,

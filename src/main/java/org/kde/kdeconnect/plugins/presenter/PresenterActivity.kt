@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.plugins.presenter
 
+import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import org.kde.kdeconnect.base.KdeActivity
 import android.content.SharedPreferences
@@ -290,16 +292,16 @@ class PresenterActivity : KdeActivity(), SensorEventListener, OnSharedPreference
         var menuExpanded by remember { mutableStateOf(false) }
 
         KdeTopAppBar(
-            softkeyOptions = listOf(
+            softkeyLeft = KeypadSoftkeys.optionsKey(this@PresenterActivity, listOf(
                 SoftkeyOption(stringResource(R.string.presenter_fullscreen)) { plugin.sendFullscreen() },
                 SoftkeyOption(stringResource(R.string.presenter_exit)) { plugin.sendEsc() },
-            ),
+            )),
             title = stringResource(R.string.pref_plugin_presenter),
             subTitle = subTitle,
             navIconOnClick = { onBackPressedDispatcher.onBackPressed() },
             navIconDescription = getString(androidx.appcompat.R.string.abc_action_bar_up_description),
             actions = {
-                IconButton(onClick = { menuExpanded = true }) {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.keypadIconButtonRing()) {
                     Icon(Icons.Default.MoreVert, stringResource(R.string.extra_options))
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {

@@ -23,6 +23,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import org.kde.kdeconnect.ui.keypad.AdaptiveDensity
+import org.kde.kdeconnect.ui.keypad.rememberKeypadDevice
 
 /** True on tiny screens such as 240x320 keypad flip phones (also after AdaptiveDensity scaled them). */
 @Composable
@@ -31,11 +32,11 @@ fun isTinyScreen(): Boolean {
     return AdaptiveDensity.isSmallScreen(LocalContext.current)
 }
 
-// Default focus overlay is 10%, invisible on small keypad-phone screens. Only the focused
-// alpha differs from the Material defaults, so touch use looks the same.
+// Keypad devices: the orange focus ring (keypadFocusRing) is the focus signal, so drop Material's
+// grey focus layer instead of doubling up (as vela-dpad does). Touch phones keep the defaults.
 @OptIn(ExperimentalMaterial3Api::class)
-private val keypadFriendlyRipple = RippleConfiguration(
-    rippleAlpha = RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0.40f, hoveredAlpha = 0.08f, pressedAlpha = 0.10f)
+private val keypadRipple = RippleConfiguration(
+    rippleAlpha = RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0f, hoveredAlpha = 0.08f, pressedAlpha = 0.10f)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +53,12 @@ fun KdeTheme(context : Context, content: @Composable () -> Unit) {
             false -> lightColorScheme()
         }
     }
+    val keypad = rememberKeypadDevice()
     MaterialTheme(colorScheme = colorScheme) {
-        CompositionLocalProvider(LocalRippleConfiguration provides keypadFriendlyRipple, content = content)
+        if (keypad) {
+            CompositionLocalProvider(LocalRippleConfiguration provides keypadRipple, content = content)
+        } else {
+            content()
+        }
     }
 }

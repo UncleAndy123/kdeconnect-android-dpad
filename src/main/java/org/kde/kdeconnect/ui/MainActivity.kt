@@ -14,9 +14,7 @@ import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.KeyEvent
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -104,14 +102,16 @@ class MainActivity : KdeActivity(), OnSharedPreferenceChangeListener {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         DeviceHelper.initializeDeviceId(this)
-        // Keypad phones: the toolbar (and its hamburger) is hidden, so offer the drawer from Options
-        KeypadSoftkeys.setExtraOptions(this, listOf(SoftkeyOption(getString(R.string.softkey_devices_settings)) {
-            mDrawerLayout?.openDrawer(mNavigationView)
-        }))
 
         val root = binding.root
         setContentView(root)
         mDrawerLayout = root as? DrawerLayout
+        // Keypad phones: DrawerLayout is focusable in touch mode; once a fragment's focused view is
+        // replaced it grabs focus, and the D-pad can't search out of a full-screen container
+        if (KeypadSoftkeys.isKeypadDevice(this)) {
+            mDrawerLayout?.isFocusableInTouchMode = false
+            mDrawerLayout?.isFocusable = false
+        }
 
         // Pad the drawer header directly: DrawerLayout's default child dispatch stops at
         // AppBarLayout (which consumes the insets via its own fitsSystemWindows), so neither
@@ -358,6 +358,16 @@ class MainActivity : KdeActivity(), OnSharedPreferenceChangeListener {
         }
     }
 
+    /** Keypad soft keys: the drawer's destinations, reachable from Options without the toolbar. */
+    fun openDrawerEntry(entry: Int) {
+        mNavigationView.setCheckedItem(entry)
+        mNavigationView.menu.performIdentifierAction(entry, 0)
+    }
+
+    fun openDeviceList() = openDrawerEntry(MENU_ENTRY_ADD_DEVICE)
+    fun openSettings() = openDrawerEntry(MENU_ENTRY_SETTINGS)
+    fun openAbout() = openDrawerEntry(MENU_ENTRY_ABOUT)
+
     private val currentFragment: Fragment?
         get() = supportFragmentManager.findFragmentById(R.id.container)
 
@@ -415,21 +425,5 @@ class MainActivity : KdeActivity(), OnSharedPreferenceChangeListener {
             super.onDrawerOpened(drawerView)
             closeDrawerCallback.isEnabled = true
         }
-    }
-
-
-    // Keypad phones: left soft key opens the options menu (like Menu), right soft key the drawer
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_SOFT_LEFT -> {
-                openOptionsMenu()
-                return true
-            }
-            KeyEvent.KEYCODE_SOFT_RIGHT -> mDrawerLayout?.let { drawer ->
-                if (drawer.isDrawerOpen(mNavigationView)) drawer.closeDrawer(mNavigationView) else drawer.openDrawer(mNavigationView)
-                return true
-            }
-        }
-        return super.onKeyUp(keyCode, event)
     }
 }

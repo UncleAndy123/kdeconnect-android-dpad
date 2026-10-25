@@ -5,6 +5,9 @@
  */
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -230,6 +233,14 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                 KdeTheme(context) {
                     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
                     val pairingErrorMessage by viewModel.pairingErrorMessage.collectAsStateWithLifecycle()
+                    // Keypad soft keys (vela-dpad model): LEFT = Options (this screen's menu, plus the
+                    // device list since the drawer's toolbar is hidden), RIGHT = the primary action
+                    val activity = mActivity
+                    val optionsKey = activity?.let { a ->
+                        KeypadSoftkeys.menuOptionsKey(a, listOfNotNull((a as? MainActivity)?.let { main ->
+                            SoftkeyOption(getString(R.string.softkey_all_devices)) { main.openDeviceList() }
+                        }))
+                    }
 
                     when (device.pairStatus) {
                         PairingHandler.PairState.Paired -> {
@@ -244,6 +255,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     device.pluginsWithoutOptionalPermissions.values.filter { plugin ->
                                         device.isPluginEnabled(plugin.pluginKey)
                                     }
+                                KeypadSoftkeys.Keys(left = optionsKey, right = null)
                                 PluginsScreen(
                                     pluginsWithButtons = pluginsWithButtons,
                                     pluginsNeedPermissions = pluginsNeedPermissions,
@@ -264,36 +276,57 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                 )
                                 displayBatteryInfoIfPossible()
                             } else {
+                                val softkeys = KeypadSoftkeys.Keys(
+                                    left = optionsKey,
+                                    right = SoftKey(getString(R.string.refresh)) { refreshDevicesAction() },
+                                )
                                 DeviceErrorScreen(
                                     isRefreshing = isRefreshing,
-                                    onRefresh = { refreshDevicesAction() }
+                                    onRefresh = { refreshDevicesAction() },
+                                    showRefreshButton = !softkeys,
                                 )
                             }
                         }
 
                         else -> {
+                            val onRequestPairing = {
+                                viewModel.setPairingErrorMessage(message =null)
+                                device.requestPairing()
+                                refreshUI()
+                            }
+                            val onAcceptPairing = {
+                                device.acceptPairing()
+                                refreshUI()
+                            }
+                            val onRejectPairing = {
+                                device.apply {
+                                    // Remove listener so buttons don't show for an instant before changing the view
+                                    removePluginsChangedListener(pluginsChangedListener)
+                                    removePairingCallback(pairingCallback)
+                                    cancelPairing()
+                                }
+                                (mActivity as? MainActivity)?.onDeviceSelected(null)
+                                Unit
+                            }
+                            val softkeys = when (device.pairStatus) {
+                                PairingHandler.PairState.NotPaired -> KeypadSoftkeys.Keys(
+                                    left = optionsKey,
+                                    right = SoftKey(getString(R.string.softkey_pair)) { onRequestPairing() },
+                                )
+                                PairingHandler.PairState.RequestedByPeer -> KeypadSoftkeys.Keys(
+                                    left = SoftKey(getString(R.string.pairing_reject)) { onRejectPairing() },
+                                    right = SoftKey(getString(R.string.pairing_accept)) { onAcceptPairing() },
+                                )
+                                else -> KeypadSoftkeys.Keys(left = optionsKey, right = null)
+                            }
                             DevicePairingScreen(
                                 pairStatus = device.pairStatus,
                                 verificationKey = device.verificationKey ?: "",
                                 pairMessage = pairingErrorMessage,
-                                onRequestPairing = {
-                                    viewModel.setPairingErrorMessage(message =null)
-                                    device.requestPairing()
-                                    refreshUI()
-                                },
-                                onAcceptPairing = {
-                                    device.acceptPairing()
-                                    refreshUI()
-                                },
-                                onRejectPairing = {
-                                    device.apply {
-                                        // Remove listener so buttons don't show for an instant before changing the view
-                                        removePluginsChangedListener(pluginsChangedListener)
-                                        removePairingCallback(pairingCallback)
-                                        cancelPairing()
-                                    }
-                                    (mActivity as? MainActivity)?.onDeviceSelected(null)
-                                }
+                                onRequestPairing = onRequestPairing,
+                                onAcceptPairing = onAcceptPairing,
+                                onRejectPairing = onRejectPairing,
+                                showButtons = !softkeys,
                             )
                         }
                     }

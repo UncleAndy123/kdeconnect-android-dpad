@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.ui.compose.components
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +46,7 @@ private fun KdeText(
         modifier = if (onClick != null) {
             modifier
                 .fillMaxWidth()
+                .keypadFocusRing(RoundedCornerShape(4.dp))
                 .clickable(onClick = onClick)
         } else {
             modifier.fillMaxWidth()

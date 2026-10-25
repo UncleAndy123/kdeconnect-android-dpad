@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.ui.compose
 
+import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
@@ -20,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.TopAppBarDefaults
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,18 +37,18 @@ fun KdeTopAppBar(
     navIconDescription: String = "",
     navIconOnClick: () -> Unit, // = { onBackPressedDispatcher.onBackPressed() }
     actions: @Composable (RowScope.() -> Unit) = {},
-    // The same actions for keypad phones, where the bar is hidden and the LEFT soft key's
-    // Options popup offers them instead (RIGHT is Back)
-    softkeyOptions: List<SoftkeyOption> = emptyList(),
+    // Keypad phones (vela-dpad model): the screen's soft keys. When it binds any, they carry the
+    // bar's actions and hardware BACK is back, so the bar is dropped to free the screen.
+    softkeyLeft: SoftKey? = null,
+    softkeyRight: SoftKey? = null,
 ) {
-    KeypadSoftkeys.Options(softkeyOptions)
-    if (KeypadSoftkeys.rememberActive()) return
+    if ((softkeyLeft != null || softkeyRight != null) && KeypadSoftkeys.Keys(softkeyLeft, softkeyRight)) return
     val tiny = isTinyScreen()
     TopAppBar(
         // 64dp is a fifth of a 320px keypad-phone screen
         expandedHeight = if (tiny) 48.dp else TopAppBarDefaults.TopAppBarExpandedHeight,
         navigationIcon = {
-            IconButton(onClick = navIconOnClick, content = { Icon(navIcon, navIconDescription) })
+            IconButton(onClick = navIconOnClick, modifier = Modifier.keypadIconButtonRing(), content = { Icon(navIcon, navIconDescription) })
         },
         title = {
             if (subTitle == null) {

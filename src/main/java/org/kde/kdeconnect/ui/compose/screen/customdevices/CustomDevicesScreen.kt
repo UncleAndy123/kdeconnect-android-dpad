@@ -6,7 +6,11 @@
 
 package org.kde.kdeconnect.ui.compose.screen.customdevices
 
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
+import org.kde.kdeconnect.ui.keypad.keypadFieldEscape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -121,7 +125,7 @@ private fun CustomDevicesScreen(
     Scaffold(
         topBar = {
             KdeTopAppBar(
-                softkeyOptions = listOf(SoftkeyOption(stringResource(R.string.add_device_dialog_title), onAddClicked)),
+                softkeyRight = SoftKey(stringResource(R.string.add_device_dialog_title), onAddClicked),
                 title = stringResource(R.string.custom_devices_settings),
                 navIconDescription = stringResource(
                     androidx.appcompat.R.string.abc_action_bar_up_description
@@ -230,6 +234,7 @@ private fun CustomDeviceItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
+                .keypadFocusRing(RoundedCornerShape(4.dp))
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -291,7 +296,7 @@ private fun AddEditDeviceDialog(
                 singleLine = true,
                 // Hosts are IPs/hostnames: start T9 keypads in a URI-friendly mode
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().keypadFieldEscape().keypadAutoFocus()
             )
         },
         confirmButton = {

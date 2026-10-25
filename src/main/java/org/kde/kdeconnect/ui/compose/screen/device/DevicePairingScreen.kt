@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.ui.compose.screen.device
 
+import org.kde.kdeconnect.ui.keypad.keypadButtonRing
+import androidx.compose.material3.ButtonDefaults
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -40,7 +43,9 @@ fun DevicePairingScreen(
     pairMessage: String? = null,
     onRequestPairing: () -> Unit,
     onAcceptPairing: () -> Unit,
-    onRejectPairing: () -> Unit
+    onRejectPairing: () -> Unit,
+    // False when soft keys carry Pair / Accept / Reject (keypad phones)
+    showButtons: Boolean = true,
 ) {
     DevicePairingScreenContent(
         pairStatus = pairStatus,
@@ -48,7 +53,8 @@ fun DevicePairingScreen(
         pairMessage = pairMessage,
         onRequestPairing = onRequestPairing,
         onAcceptPairing = onAcceptPairing,
-        onRejectPairing = onRejectPairing
+        onRejectPairing = onRejectPairing,
+        showButtons = showButtons,
     )
 }
 
@@ -59,7 +65,8 @@ private fun DevicePairingScreenContent(
     pairMessage: String? = null,
     onRequestPairing: () -> Unit,
     onAcceptPairing: () -> Unit,
-    onRejectPairing: () -> Unit
+    onRejectPairing: () -> Unit,
+    showButtons: Boolean = true,
 ) {
     Column(
         modifier = Modifier
@@ -106,16 +113,16 @@ private fun DevicePairingScreenContent(
             )
         }
 
-        if (pairStatus == PairingHandler.PairState.NotPaired) {
+        if (showButtons && pairStatus == PairingHandler.PairState.NotPaired) {
             Button(
                 onClick = onRequestPairing,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().keypadButtonRing(ButtonDefaults.shape).keypadAutoFocus()
             ) {
                 Text(text = stringResource(id = R.string.request_pairing))
             }
         }
 
-        if (pairStatus == PairingHandler.PairState.RequestedByPeer) {
+        if (showButtons && pairStatus == PairingHandler.PairState.RequestedByPeer) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -123,14 +130,14 @@ private fun DevicePairingScreenContent(
             ) {
                 Button(
                     onClick = onAcceptPairing,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).keypadButtonRing(ButtonDefaults.shape).keypadAutoFocus()
                 ) {
                     Text(text = stringResource(id = R.string.pairing_accept))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = onRejectPairing,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).keypadButtonRing(ButtonDefaults.shape)
                 ) {
                     Text(text = stringResource(id = R.string.pairing_reject))
                 }

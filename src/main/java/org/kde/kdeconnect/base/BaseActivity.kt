@@ -6,7 +6,6 @@
 package org.kde.kdeconnect.base
 
 import android.os.Bundle
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import androidx.activity.enableEdgeToEdge
@@ -31,15 +30,6 @@ abstract class BaseActivity<VB: ViewBinding> : KdeActivity() {
             onWindowInsetsChanged(view, insets)
             insets
         }
-    }
-
-    // Keypad phones: the left soft key opens the options menu, like the Menu key does
-    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_SOFT_LEFT) {
-            openOptionsMenu()
-            return true
-        }
-        return super.onKeyUp(keyCode, event)
     }
 
     open fun onWindowInsetsChanged(view: View, insets: WindowInsetsCompat) {

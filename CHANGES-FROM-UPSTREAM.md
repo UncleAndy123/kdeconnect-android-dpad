@@ -24,9 +24,21 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 ## Keypad-only phones (e.g. Kyocera Cadence S2720)
 Everything below switches on automatically on phones with no touchscreen (or a real D-pad). Touch phones look and work exactly like upstream.
 
-- **Soft keys instead of on-screen buttons.** A slim bar at the bottom shows what the two soft keys do: **Options** (left) and **Back** (right). This is the same Yapchik softkey bar as Vela.
-  - The top toolbar and the floating buttons are hidden to make room. Everything they offered is in Options.
-  - On the main screen, Options also opens the devices & settings drawer.
+- **Soft keys instead of on-screen buttons.** This works the same way as Vela.
+  - A slim bar at the bottom shows what the two soft keys do on each screen. The left key is usually **Options**, a menu of that screen's actions. The right key is the screen's main action:
+    - **Refresh** on the device list
+    - **Pair**, or **Accept**/**Reject**, on an unpaired device
+    - **Play/Pause** in the media remote
+    - **Type/Mouse** in the remote touchpad
+    - **Send** when composing text
+    - **Add** on the custom devices list
+  - The on-screen buttons those keys replace (toolbars, floating buttons, Pair/Accept, Send, Play) are hidden to make room.
+  - Back is the phone's own Back key.
+  - Screens with nothing to put on the keys show no bar and keep their normal top bar.
+  - The Options menu sits right on top of the bar and is only as wide as its longest entry.
+  - Settings has a **Hardware soft keys** switch and **Calibrate soft keys**, for phones whose keys aren't recognised.
+- **Clear focus highlight.** The highlighted item gets Vela's orange outline. It hugs the control: a toggle's pill, a button's shape, a menu row.
+- **Every screen opens with something already highlighted.**
 - **More room on tiny screens.** On 240×320 displays the app lays itself out as if the screen were wider, so things fit instead of being cut off. Text is a little smaller.
 - **Everything reachable with the D-pad:**
   - Plugin rows now let you open a plugin's settings or turn it on/off.
@@ -35,7 +47,6 @@ Everything below switches on automatically on phones with no touchscreen (or a r
   - Custom devices can be deleted from their edit dialog, and IP addresses are easier to type on the keypad.
   - The volume mute button can be reached.
   - Seeking in the media remote works with left/right.
-  - The highlighted item is much easier to see.
 - **Smaller screens, fitted.** The media remote scrolls and drops the album art. The pairing screen scrolls so Accept/Reject are always reachable. Device cards and command output take less space.
 - **Keypad mouse for the computer.** In the remote touchpad, the keypad becomes the mouse:
   - arrows or 2/4/6/8 move the pointer, speeding up while held

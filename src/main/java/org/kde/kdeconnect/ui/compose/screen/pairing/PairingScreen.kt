@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.ui.compose.screen.pairing
 
+import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
+import androidx.compose.foundation.shape.RoundedCornerShape
+import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -110,6 +113,9 @@ private fun PairingScreenContent(
                 )
             }
 
+            // Keypad phones: the screen opens with the first device focused
+            val firstDeviceId = (uiState.connected + uiState.available + uiState.remembered).firstOrNull()?.id
+
             // Connected devices
             item {
                 SectionHeader(title = stringResource(id = R.string.category_connected_devices))
@@ -127,7 +133,8 @@ private fun PairingScreenContent(
                     key = { _, connectedDevice -> connectedDevice.id }) { _, connectedDevice ->
                     CardContent(
                         device = connectedDevice,
-                        onClick = onClick
+                        onClick = onClick,
+                        autoFocus = connectedDevice.id == firstDeviceId
                     )
                 }
             }
@@ -145,7 +152,8 @@ private fun PairingScreenContent(
                     key = { _, availableDevice -> availableDevice.id }) { _, availableDevice ->
                     CardContent(
                         device = availableDevice,
-                        onClick = onClick
+                        onClick = onClick,
+                        autoFocus = availableDevice.id == firstDeviceId
                     )
                 }
             }
@@ -163,7 +171,8 @@ private fun PairingScreenContent(
                     key = { _, rememberedDevice -> rememberedDevice.id }) { _, rememberedDevice ->
                     CardContent(
                         device = rememberedDevice,
-                        onClick = onClick
+                        onClick = onClick,
+                        autoFocus = rememberedDevice.id == firstDeviceId
                     )
                 }
             }
@@ -233,7 +242,7 @@ fun PairingExplanationRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.keypadFocusRing(RoundedCornerShape(4.dp)).clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -270,10 +279,11 @@ fun EmptyPlaceholder() {
 @Composable
 private fun CardContent(
     device: DeviceUiModel,
-    onClick: (String) -> Unit
+    onClick: (String) -> Unit,
+    autoFocus: Boolean = false
 ) {
     KdeCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().then(if (autoFocus) Modifier.keypadAutoFocus() else Modifier),
         content = {
             PairingScreenCardContent(device = device)
         },

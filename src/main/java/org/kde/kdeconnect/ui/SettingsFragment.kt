@@ -5,6 +5,7 @@
  */
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -69,6 +70,29 @@ class SettingsFragment : PreferenceFragmentCompat() {
             exportLogsPref(context),
             moreSettingsPref(context),
         ).forEach(screen::addPreference)
+
+        // Keypad phones only (vela-dpad): turn the soft-key bar off, or calibrate odd soft keys
+        if (KeypadSoftkeys.isKeypadDevice(context)) {
+            screen.addPreference(SwitchPreference(context).apply {
+                isPersistent = false
+                isChecked = KeypadSoftkeys.isEnabled
+                setTitle(R.string.softkey_hardware)
+                setSummary(R.string.softkey_hardware_summary)
+                onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, new ->
+                    KeypadSoftkeys.isEnabled = new as Boolean
+                    true
+                }
+            })
+            screen.addPreference(Preference(context).apply {
+                isPersistent = false
+                setTitle(R.string.softkey_calibrate)
+                setSummary(R.string.softkey_calibrate_summary)
+                onPreferenceClickListener = Preference.OnPreferenceClickListener {
+                    KeypadSoftkeys.calibrate(requireActivity())
+                    true
+                }
+            })
+        }
 
         preferenceScreen = screen
     }

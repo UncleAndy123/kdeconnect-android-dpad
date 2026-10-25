@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.plugins.mousepad
 
+import org.kde.kdeconnect.ui.keypad.SoftKey
 import android.content.Intent
 import android.content.SharedPreferences
 import android.hardware.Sensor
@@ -160,9 +161,10 @@ class MousePadActivity :
         keyListenerView.setDeviceId(deviceId)
         ViewCompat.setOnApplyWindowInsetsListener(keyListenerView, this)
         keyListenerView.onPointerModeChanged = { pointer ->
-            Toast.makeText(this, if (pointer) R.string.mousepad_keypad_pointer_help else R.string.mousepad_keypad_typing_help, Toast.LENGTH_LONG).show()
+            updateInfoText()
             if (!pointer) showKeyboard()
             invalidateOptionsMenu()
+            bindSoftkeys()
         }
         // Phones without a touchscreen can't use the touchpad: start with the keypad as the mouse
         if (isKeypadDevice) {
@@ -207,6 +209,32 @@ class MousePadActivity :
         super.onResume()
 
         if (isKeypadDevice) keyListenerView.requestFocus()
+        bindSoftkeys()
+    }
+
+    /** Keypad soft keys (vela-dpad model): LEFT = Options, RIGHT = switch between using the keypad
+     *  as the mouse and typing on the computer. */
+    private fun bindSoftkeys() {
+        KeypadSoftkeys.bind(
+            this,
+            KeypadSoftkeys.menuOptionsKey(this, exclude = setOf(R.id.menu_keypad_pointer)),
+            SoftKey(getString(if (keyListenerView.pointerMode) R.string.softkey_type else R.string.softkey_mouse)) {
+                keyListenerView.pointerMode = !keyListenerView.pointerMode
+                keyListenerView.requestFocus()
+            },
+        )
+    }
+
+    /** Keypad phones get the keypad controls instead of the touch-gesture help. */
+    private fun updateInfoText() {
+        binding.mousepadInfo.setText(
+            when {
+                isKeypadDevice && keyListenerView.pointerMode -> R.string.mousepad_keypad_pointer_help
+                isKeypadDevice -> R.string.mousepad_keypad_typing_help
+                doubleTapDragEnabled -> R.string.mousepad_info_double_tap
+                else -> R.string.mousepad_info
+            }
+        )
     }
 
     private val isKeypadDevice: Boolean
@@ -664,10 +692,7 @@ class MousePadActivity :
         }
 
         doubleTapDragEnabled = p.getBoolean(getString(R.string.mousepad_doubletap_drag_enabled_pref), true)
-        binding.mousepadInfo.setText(
-            if (doubleTapDragEnabled) R.string.mousepad_info_double_tap
-            else R.string.mousepad_info
-        )
+        updateInfoText()
 
         prefsApplied = true
     }
