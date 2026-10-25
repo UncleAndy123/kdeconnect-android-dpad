@@ -14,9 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
-import android.os.Build
 import android.os.Handler
-import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
 import androidx.core.content.ContextCompat
 import com.klinker.android.logger.Log
@@ -43,7 +41,6 @@ import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
 @LoadablePlugin
-@RequiresApi(Build.VERSION_CODES.O)
 class SMSPlugin : Plugin() {
     /**
      * Keep track of the most-recently-seen message so that we can query for later ones as they arrive
@@ -131,8 +128,6 @@ class SMSPlugin : Plugin() {
         // Send the alert about the update
         device.sendPacket(constructBulkMessagePacket(messages))
     }
-
-    override val minSdk: Int = Build.VERSION_CODES.O
 
     override val permissionExplanation: Int = R.string.telepathy_permission_explanation
 

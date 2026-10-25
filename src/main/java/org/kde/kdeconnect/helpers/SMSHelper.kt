@@ -10,9 +10,11 @@ import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context
 import android.database.sqlite.SQLiteException
+import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.media.ThumbnailUtils
 import android.net.Uri
+import android.os.Build
 import android.os.Looper
 import android.provider.Telephony
 import android.util.Log
@@ -602,12 +604,27 @@ object SMSHelper {
                                     context,
                                     ContentUris.withAppendedId(mMSPartUri, partID)
                                 )
-                                val videoThumbnail = retriever.getScaledFrameAtTime(
-                                    -1,
-                                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                                    THUMBNAIL_WIDTH,
-                                    THUMBNAIL_HEIGHT
-                                )
+                                val videoThumbnail = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                                    retriever.getScaledFrameAtTime(
+                                        -1,
+                                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                                        THUMBNAIL_WIDTH,
+                                        THUMBNAIL_HEIGHT
+                                    )
+                                } else {
+                                    retriever.getFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.let { frame ->
+                                        // Same aspect-preserving fit getScaledFrameAtTime does
+                                        val scale = minOf(THUMBNAIL_WIDTH.toFloat() / frame.width, THUMBNAIL_HEIGHT.toFloat() / frame.height)
+                                        val scaled = Bitmap.createScaledBitmap(
+                                            frame,
+                                            maxOf(1, (frame.width * scale).toInt()),
+                                            maxOf(1, (frame.height * scale).toInt()),
+                                            true
+                                        )
+                                        if (scaled !== frame) frame.recycle()
+                                        scaled
+                                    }
+                                }
                                 if (videoThumbnail != null) {
                                     val encodedThumbnail = SmsMmsUtils.bitMapToBase64(videoThumbnail)
                                     attachments.add(

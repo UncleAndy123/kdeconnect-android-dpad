@@ -82,16 +82,10 @@ class MouseReceiverPlugin : Plugin() {
             isSingleHold -> {
                 // For drag'n drop
                 // Log.i("MouseReceiverPlugin", "singleHold")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    KdeConnectAccessibilityService.instance?.longClickSwipe()
-                } else {
-                    KdeConnectAccessibilityService.instance?.longClick()
-                }
+                KdeConnectAccessibilityService.instance?.longClickSwipe()
             }
             isSingleRelease -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    return KdeConnectAccessibilityService.instance?.stopSwipe() ?: false
-                }
+                return KdeConnectAccessibilityService.instance?.stopSwipe() ?: false
             }
             isScroll -> {
                 // Log.i("MouseReceiverPlugin", "scroll dx: $dx dy: $dy")

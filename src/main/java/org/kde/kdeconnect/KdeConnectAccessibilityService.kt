@@ -11,6 +11,7 @@ import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.content.res.Configuration
 import android.graphics.Path
+import android.graphics.Point
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -33,6 +34,8 @@ import org.kde.kdeconnect_tp.R
 import java.util.ArrayDeque
 import java.util.Deque
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.hypot
 import kotlin.math.sign
 
 open class KdeConnectAccessibilityService : AccessibilityService() {
@@ -68,6 +71,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
     }
 
     private var swipeStoke: StrokeDescription? = null
+    private var legacyDragPoints: MutableList<Point>? = null
     private var scrollSum = 0.0
 
     private var cursorHalfWidth = 0
@@ -162,7 +166,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
 
         hideAfter5Seconds()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isSwiping()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isSwiping()) {
             return continueSwipe(fromX, fromY)
         }
 
@@ -175,7 +179,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     fun click(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isSwiping()) {
+        if (isSwiping()) {
             return stopSwipe()
         }
 
@@ -197,7 +201,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
         )
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.N)
     fun longClickSwipe(): Boolean {
         return if (isSwiping()) {
             stopSwipe()
@@ -207,11 +211,22 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
     }
 
     private fun isSwiping(): Boolean {
-        return swipeStoke != null
+        return swipeStoke != null || legacyDragPoints != null
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    private fun setCursorPressed(pressed: Boolean) {
+        (cursorView?.findViewById<View>(R.id.mouse_cursor) as? ImageView)?.setImageResource(
+            if (pressed) R.drawable.mouse_pointer_clicked else R.drawable.mouse_pointer
+        )
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
     private fun startSwipe(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            legacyDragPoints = mutableListOf(Point(x, y))
+            setCursorPressed(true)
+            return true
+        }
         assert(swipeStoke == null)
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
@@ -219,12 +234,16 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
         swipeStoke = stroke
         val builder = GestureDescription.Builder()
         builder.addStroke(stroke)
-        (cursorView?.findViewById<View>(R.id.mouse_cursor) as? ImageView)?.setImageResource(R.drawable.mouse_pointer_clicked)
+        setCursorPressed(true)
         return dispatchGesture(builder.build(), null, null)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.N)
     private fun continueSwipe(fromX: Int, fromY: Int): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            legacyDragPoints?.add(Point(x, y))
+            return true
+        }
         val currentStroke = swipeStoke ?: return false
         val path = Path()
         path.moveTo(fromX.toFloat(), fromY.toFloat())
@@ -236,8 +255,11 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
         return dispatchGesture(builder.build(), null, null)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.N)
     fun stopSwipe(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return finishLegacyDrag()
+        }
         val path = Path()
         path.moveTo(x.toFloat(), y.toFloat())
         val stroke = swipeStoke ?: return true
@@ -245,8 +267,48 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
         val builder = GestureDescription.Builder()
         builder.addStroke(finalStroke)
         swipeStoke = null
-        (cursorView?.findViewById<View>(R.id.mouse_cursor) as? ImageView)?.setImageResource(R.drawable.mouse_pointer)
+        setCursorPressed(false)
         return dispatchGesture(builder.build(), null, null)
+    }
+
+    /**
+     * API 24-25 have no StrokeDescription.continueStroke(), so a live drag is impossible.
+     * The pointer path is recorded while the button is held and replayed here as one
+     * stroke: a long-press hold (tiny 1px jitter, well inside touch slop) followed by the move.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private fun finishLegacyDrag(): Boolean {
+        val points = legacyDragPoints ?: return true
+        legacyDragPoints = null
+        setCursorPressed(false)
+
+        val start = points.first()
+        var dragLength = 0.0
+        for (i in 1 until points.size) {
+            dragLength += hypot((points[i].x - points[i - 1].x).toDouble(), (points[i].y - points[i - 1].y).toDouble())
+        }
+        if (dragLength < 1) {
+            return dispatchGesture(createClick(start.x, start.y, ViewConfiguration.getLongPressTimeout()), null, null)
+        }
+
+        // Stroke time is spread evenly over path length, so the hold is made of jitter length.
+        val holdMs = ViewConfiguration.getLongPressTimeout() + 200L
+        val dragMs = (dragLength / 2).toLong().coerceIn(200L, 5000L)
+        val jitterSegments = ceil(dragLength * holdMs / dragMs).toInt()
+        val jitter = if (start.x > 0) -1f else 1f
+
+        val path = Path()
+        path.moveTo(start.x.toFloat(), start.y.toFloat())
+        for (i in 0 until jitterSegments) {
+            path.lineTo(start.x + if (i % 2 == 0) jitter else 0f, start.y.toFloat())
+        }
+        for (i in 1 until points.size) {
+            path.lineTo(points[i].x.toFloat(), points[i].y.toFloat())
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(StrokeDescription(path, 0, holdMs + dragMs))
+            .build()
+        return dispatchGesture(gesture, null, null)
     }
 
     fun scroll(dx: Int, dy: Int): Boolean {

@@ -19,7 +19,6 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT
-import androidx.annotation.RequiresApi
 import androidx.fragment.app.DialogFragment
 import org.kde.kdeconnect.KdeConnectAccessibilityService
 import org.kde.kdeconnect.NetworkPacket
@@ -31,7 +30,6 @@ import org.kde.kdeconnect.ui.StartActivityAlertDialogFragment
 import org.kde.kdeconnect_tp.R
 
 
-@RequiresApi(Build.VERSION_CODES.O)
 @LoadablePlugin
 class RemoteKeyboardPlugin : Plugin() {
     override val displayName: String
@@ -39,9 +37,6 @@ class RemoteKeyboardPlugin : Plugin() {
 
     override val description: String
         get() = context.resources.getString(R.string.pref_plugin_remotekeyboard_desc)
-
-    override val minSdk: Int
-        get() = Build.VERSION_CODES.O
 
     override val permissionExplanationDialog: DialogFragment
         get() = StartActivityAlertDialogFragment.Builder()
@@ -242,6 +237,8 @@ class RemoteKeyboardPlugin : Plugin() {
                         focus.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_CENTER)
+                    } else {
+                        legacyEnter(focus)
                     }
                 }
                 else -> {}
@@ -292,6 +289,8 @@ class RemoteKeyboardPlugin : Plugin() {
                     KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_CENTER)
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     focus.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                } else {
+                    legacyEnter(focus)
                 }
             }
 
@@ -304,6 +303,18 @@ class RemoteKeyboardPlugin : Plugin() {
             }
 
             else -> {}
+        }
+    }
+
+    /**
+     * Pre-Android 11 there is no IME_ENTER / DPAD_CENTER for accessibility services:
+     * insert a newline in multi-line fields, otherwise click the focused node.
+     */
+    private fun legacyEnter(focus: AccessibilityNodeInfo) {
+        if (focus.isEditable && focus.isMultiLine) {
+            keyInput(focus, "\n")
+        } else {
+            focus.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         }
     }
 
@@ -491,7 +502,8 @@ class RemoteKeyboardPlugin : Plugin() {
     }
 
     private fun getFieldText(focus: AccessibilityNodeInfo): String? {
-        if (focus.isShowingHintText) return null
+        // isShowingHintText is API 26+; older releases rely on the selection check below
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focus.isShowingHintText) return null
         // Fallback: some apps return hint as real text but report selection -1,-1
         if (focus.textSelectionStart == -1 && focus.textSelectionEnd == -1) return null
         return focus.text?.toString()
