@@ -22,7 +22,34 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **Receiving files.** Files sent from the computer keep their original "last modified" date on Android 7, as they already did on newer Android.
 
 ## Keypad-only phones (e.g. Kyocera Cadence S2720)
+Everything below switches on automatically on phones with no touchscreen (or a real D-pad). Touch phones look and work exactly like upstream.
+
+- **Soft keys instead of on-screen buttons.** A slim bar at the bottom shows what the two soft keys do: **Options** (left) and **Back** (right). This is the same Yapchik softkey bar as Vela.
+  - The top toolbar and the floating buttons are hidden to make room. Everything they offered is in Options.
+  - On the main screen, Options also opens the devices & settings drawer.
+- **More room on tiny screens.** On 240×320 displays the app lays itself out as if the screen were wider, so things fit instead of being cut off. Text is a little smaller.
+- **Everything reachable with the D-pad:**
+  - Plugin rows now let you open a plugin's settings or turn it on/off.
+  - Text boxes no longer trap the arrow keys.
+  - The "device unreachable" screen has a Refresh button, since pull-to-refresh needs touch.
+  - Custom devices can be deleted from their edit dialog, and IP addresses are easier to type on the keypad.
+  - The volume mute button can be reached.
+  - Seeking in the media remote works with left/right.
+  - The highlighted item is much easier to see.
+- **Smaller screens, fitted.** The media remote scrolls and drops the album art. The pairing screen scrolls so Accept/Reject are always reachable. Device cards and command output take less space.
+- **Keypad mouse for the computer.** In the remote touchpad, the keypad becomes the mouse:
+  - arrows or 2/4/6/8 move the pointer, speeding up while held
+  - OK or 5 clicks, \* right-clicks, 3 middle-clicks, 9 double-clicks
+  - 0 starts or ends a drag
+  - 1/7 scroll
+  - \# switches to typing on the computer; Options gets you back
+- **T9 typing to the computer** works with multi-tap keyboards, and Backspace is passed through.
+- **Presentation remote:** OK toggles the pointer. The pointer button is hidden on phones without a gyroscope.
 - `cadence-adb-setup.sh` grants everything the app needs over USB, including the screens a keypad phone can't open: notification access, the accessibility service, battery exemption and permissions.
+
+## Builds
+- Every push that changes the app builds release APKs for **arm64-v8a** and **armeabi-v7a** and publishes them as a GitHub release (a pre-release on branches other than the default).
+- Add `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` secrets to sign with your own key. Without them, builds are signed with the repo's debug key.
 
 ## Known limits on Android 7.1.1
 - **Remote keyboard:**

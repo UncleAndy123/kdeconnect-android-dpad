@@ -209,6 +209,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
     override fun onResume() {
         super.onResume()
         with(requireView()) {
+            // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus
+            if (!isInTouchMode) return
             isFocusableInTouchMode = true
             requestFocus()
         }

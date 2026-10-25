@@ -54,6 +54,9 @@ android {
 
     sourceSets.getByName("main") {
         res.directories += licenseResDir
+        // Vendored Yapchik softkey engine (LGPL-3.0-or-later, see yapchik/NOTICE), kept in its own
+        // directory and package so it can be re-synced from upstream
+        kotlin.directories += "yapchik/src/main/java"
     }
 
     compileOptions {
@@ -80,6 +83,32 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Release key from RELEASE_KEYSTORE / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS /
+        // RELEASE_KEY_PASSWORD (CI secrets); without them release builds use the debug key above
+        // so they stay installable
+        create("release") {
+            val keystore = System.getenv("RELEASE_KEYSTORE")
+            if (keystore.isNullOrEmpty()) {
+                initWith(getByName("debug"))
+            } else {
+                storeFile = file(keystore)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+    // -PsplitAbis=arm64-v8a,armeabi-v7a builds one APK per ABI (used by CI releases)
+    val splitAbis = (findProperty("splitAbis") as String?)?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+    splits {
+        abi {
+            isEnable = !splitAbis.isNullOrEmpty()
+            if (!splitAbis.isNullOrEmpty()) {
+                reset()
+                include(*splitAbis.toTypedArray())
+                isUniversalApk = false
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -91,6 +120,7 @@ android {
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     lint {
@@ -334,7 +364,8 @@ tasks.named("generateLicenseReport") {
     val outputFile = file("$licenseResDir/raw/license")
     val inputFiles = files(
         layout.projectDirectory.file("COPYING"),
-        layout.buildDirectory.file("reports/dependency-license/THIRD-PARTY-NOTICES.txt")
+        layout.buildDirectory.file("reports/dependency-license/THIRD-PARTY-NOTICES.txt"),
+        layout.projectDirectory.file("yapchik/NOTICE")
     )
     outputs.file(outputFile)
     doLast {

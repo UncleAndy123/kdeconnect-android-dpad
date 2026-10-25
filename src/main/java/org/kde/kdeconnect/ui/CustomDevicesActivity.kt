@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -15,7 +16,7 @@ import org.kde.kdeconnect.DeviceHost
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.screen.customdevices.CustomDevicesRoute
 
-class CustomDevicesActivity : AppCompatActivity() {
+class CustomDevicesActivity : KdeActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {

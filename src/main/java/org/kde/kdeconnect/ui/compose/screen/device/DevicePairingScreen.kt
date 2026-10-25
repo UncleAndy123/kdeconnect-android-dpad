@@ -7,6 +7,8 @@
 package org.kde.kdeconnect.ui.compose.screen.device
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,6 +64,8 @@ private fun DevicePairingScreenContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // Scroll so Accept/Reject stay reachable on very small (240x320) screens
+            .verticalScroll(rememberScrollState())
             .padding(all = 16.dp)
     ) {
         val finalPairMessage = pairMessage ?: when (pairStatus) {

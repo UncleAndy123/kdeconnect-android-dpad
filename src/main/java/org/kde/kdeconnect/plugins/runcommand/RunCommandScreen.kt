@@ -1,5 +1,7 @@
 package org.kde.kdeconnect.plugins.runcommand
 
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import androidx.activity.OnBackPressedDispatcher
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -62,6 +64,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.ui.compose.KdeTheme
+import org.kde.kdeconnect.ui.compose.isTinyScreen
 import org.kde.kdeconnect.ui.compose.KdeTopAppBar
 import org.kde.kdeconnect_tp.R
 import kotlin.time.Duration.Companion.seconds
@@ -106,10 +109,17 @@ fun RunCommandScreen(
                     onBackPressedDispatcher = onBackPressedDispatcher,
                     showClearOutput = showOutputCard,
                     onClearOutput = { plugin.clearOutput() },
+                    onAddCommand = if (plugin.canAddCommand()) {
+                        {
+                            plugin.sendSetupPacket()
+                            showDialog = true
+                        }
+                    } else null,
                 )
             },
             floatingActionButton = {
-                if (plugin.canAddCommand()) {
+                // On keypad phones "Add command" is in the soft key Options menu instead
+                if (plugin.canAddCommand() && !KeypadSoftkeys.rememberActive()) {
                     FloatingActionButton(onClick = {
                         plugin.sendSetupPacket()
                         showDialog = true
@@ -267,7 +277,7 @@ private fun OutputCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .height(if (isTinyScreen()) 140.dp else 300.dp)
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
         if (outputList.isNotEmpty()) {
@@ -347,8 +357,15 @@ fun RunCommandAppBar(
     onBackPressedDispatcher: OnBackPressedDispatcher,
     showClearOutput: Boolean,
     onClearOutput: () -> Unit,
+    onAddCommand: (() -> Unit)? = null,
 ) {
+    val clearLabel = stringResource(R.string.runcommand_clear_output)
+    val addLabel = stringResource(R.string.add_command)
     KdeTopAppBar(
+        softkeyOptions = listOfNotNull(
+            onAddCommand?.let { SoftkeyOption(addLabel, it) },
+            if (showClearOutput) SoftkeyOption(clearLabel, onClearOutput) else null,
+        ),
         title = stringResource(R.string.pref_plugin_runcommand),
         subTitle = subTitle,
         navIconOnClick = { onBackPressedDispatcher.onBackPressed() },

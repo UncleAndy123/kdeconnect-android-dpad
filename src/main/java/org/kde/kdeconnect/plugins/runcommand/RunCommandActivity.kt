@@ -7,6 +7,7 @@
  */
 package org.kde.kdeconnect.plugins.runcommand
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.ClipData
 import android.os.Bundle
 import android.util.Log
@@ -25,7 +26,7 @@ import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect_tp.R
 
 
-class RunCommandActivity : AppCompatActivity() {
+class RunCommandActivity : KdeActivity() {
 
     val commandList = mutableStateListOf<CommandEntry>()
 

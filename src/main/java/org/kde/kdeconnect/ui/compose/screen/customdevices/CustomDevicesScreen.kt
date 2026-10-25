@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.ui.compose.screen.customdevices
 
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -30,6 +32,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -116,6 +121,7 @@ private fun CustomDevicesScreen(
     Scaffold(
         topBar = {
             KdeTopAppBar(
+                softkeyOptions = listOf(SoftkeyOption(stringResource(R.string.add_device_dialog_title), onAddClicked)),
                 title = stringResource(R.string.custom_devices_settings),
                 navIconDescription = stringResource(
                     androidx.appcompat.R.string.abc_action_bar_up_description
@@ -124,7 +130,8 @@ private fun CustomDevicesScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddClicked) {
+            // On keypad phones "Add device" is in the soft key Options menu instead
+            if (!KeypadSoftkeys.rememberActive()) FloatingActionButton(onClick = onAddClicked) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = stringResource(R.string.add_device_dialog_title)
@@ -177,7 +184,13 @@ private fun CustomDevicesScreen(
         AddEditDeviceDialog(
             dialogState = dialogState,
             onConfirm = onDialogConfirm,
-            onDismiss = onDialogDismiss
+            onDismiss = onDialogDismiss,
+            onDelete = (dialogState as? DialogState.Editing)?.let { editing ->
+                {
+                    onDialogDismiss()
+                    onDeviceDismissed(editing.editId)
+                }
+            }
         )
     }
 }
@@ -244,7 +257,9 @@ private fun CustomDeviceItem(
 private fun AddEditDeviceDialog(
     dialogState: DialogState,
     onConfirm: (String) -> SaveResult,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // Swipe-to-delete needs touch; keypad-only devices delete from the edit dialog
+    onDelete: (() -> Unit)? = null
 ) {
     val initialText = when (dialogState) {
         DialogState.AddingNew -> ""
@@ -274,6 +289,8 @@ private fun AddEditDeviceDialog(
                     { Text(msg, color = MaterialTheme.colorScheme.error) }
                 },
                 singleLine = true,
+                // Hosts are IPs/hostnames: start T9 keypads in a URI-friendly mode
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth()
             )
         },
@@ -291,8 +308,15 @@ private fun AddEditDeviceDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text(stringResource(R.string.sftp_action_mode_menu_delete))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         }
     )

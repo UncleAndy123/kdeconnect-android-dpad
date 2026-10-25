@@ -18,7 +18,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.TopAppBarDefaults
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import org.kde.kdeconnect_tp.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,8 +35,16 @@ fun KdeTopAppBar(
     navIconDescription: String = "",
     navIconOnClick: () -> Unit, // = { onBackPressedDispatcher.onBackPressed() }
     actions: @Composable (RowScope.() -> Unit) = {},
+    // The same actions for keypad phones, where the bar is hidden and the LEFT soft key's
+    // Options popup offers them instead (RIGHT is Back)
+    softkeyOptions: List<SoftkeyOption> = emptyList(),
 ) {
+    KeypadSoftkeys.Options(softkeyOptions)
+    if (KeypadSoftkeys.rememberActive()) return
+    val tiny = isTinyScreen()
     TopAppBar(
+        // 64dp is a fifth of a 320px keypad-phone screen
+        expandedHeight = if (tiny) 48.dp else TopAppBarDefaults.TopAppBarExpandedHeight,
         navigationIcon = {
             IconButton(onClick = navIconOnClick, content = { Icon(navIcon, navIconDescription) })
         },
@@ -39,6 +52,8 @@ fun KdeTopAppBar(
             if (subTitle == null) {
                 Text(
                     title,
+                    maxLines = if (tiny) 1 else Int.MAX_VALUE,
+                    overflow = TextOverflow.Ellipsis,
                     // Commented for now because the MDC and androidx toolbars don't set this either
                     // https://github.com/material-components/material-components-android/issues/4073
                     // https://github.com/androidx/androidx/blob/androidx-main/appcompat/appcompat/src/main/res/layout/abc_action_bar_title_item.xml
@@ -46,8 +61,8 @@ fun KdeTopAppBar(
                 )
             } else {
                 Column {
-                    Text(title)
-                    Text(subTitle, style = MaterialTheme.typography.titleMedium)
+                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(subTitle, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         },

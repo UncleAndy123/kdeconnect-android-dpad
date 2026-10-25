@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.plugins.share
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -18,7 +19,7 @@ import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.helpers.ThreadHelper
 import org.kde.kdeconnect_tp.R
 
-class SendFileActivity : AppCompatActivity() {
+class SendFileActivity : KdeActivity() {
 
     private lateinit var deviceId: String
 

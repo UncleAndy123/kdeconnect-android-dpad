@@ -26,6 +26,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.net.toUri
 import androidx.core.view.MenuProvider
+import androidx.core.widget.NestedScrollView
+import org.kde.kdeconnect.ui.keypad.AdaptiveDensity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.preference.PreferenceManager
@@ -61,6 +63,13 @@ class MprisNowPlayingFragment : Fragment(), VolumeKeyListener {
             positionSeekUpdateHandler.removeCallbacks(this)
             positionSeekUpdateHandler.postDelayed(this, 1000)
         }
+    }
+
+    // D-pad seeking never triggers onStopTrackingTouch, so key changes are sent after a short pause
+    private var trackingTouch = false
+    private val keySeekRunnable = Runnable {
+        targetPlayer?.sendSetPosition(mprisControlBinding.positionSeek.progress)
+        positionSeekUpdateHandler.postDelayed(positionSeekUpdateRunnable, 200)
     }
 
     private var targetPlayerName = ""
@@ -150,19 +159,36 @@ class MprisNowPlayingFragment : Fragment(), VolumeKeyListener {
                     val remaining = ((targetPlayer?.length ?: 0) - progress).coerceAtLeast(0)
                     mprisControlBinding.timeTextview.text = "-${durationToProgress(remaining.milliseconds)}"
                 }
+                if (byUser && !trackingTouch) {
+                    positionSeekUpdateHandler.removeCallbacks(positionSeekUpdateRunnable)
+                    positionSeekUpdateHandler.removeCallbacks(keySeekRunnable)
+                    positionSeekUpdateHandler.postDelayed(keySeekRunnable, 400)
+                }
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {
+                trackingTouch = true
                 positionSeekUpdateHandler.removeCallbacks(positionSeekUpdateRunnable)
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
+                trackingTouch = false
                 targetPlayer?.sendSetPosition(seekBar.progress)
                 positionSeekUpdateHandler.postDelayed(positionSeekUpdateRunnable, 200)
             }
         })
 
         mprisControlBinding.nowPlayingTextview.isSelected = true
+
+        // Keypad flip phones (240x320): album art leaves no room for the controls; drop it and
+        // scroll so every control can be seen while D-pad focus moves through them
+        if (AdaptiveDensity.isSmallScreen(requireContext())) {
+            activityMprisBinding.albumArt.visibility = View.GONE
+            return NestedScrollView(requireContext()).apply {
+                isFillViewport = true
+                addView(activityMprisBinding.root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+        }
 
         return activityMprisBinding.root
     }
@@ -179,6 +205,7 @@ class MprisNowPlayingFragment : Fragment(), VolumeKeyListener {
 
     override fun onDestroyView() {
         positionSeekUpdateHandler.removeCallbacks(positionSeekUpdateRunnable)
+        positionSeekUpdateHandler.removeCallbacks(keySeekRunnable)
         disconnectFromPlugin()
         mprisControlBinding.playerSpinner.adapter = null
         super.onDestroyView()

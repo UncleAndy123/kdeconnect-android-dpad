@@ -1,0 +1,25 @@
+Softkey Integration (yapchik)
+
+Copyright (C) 2026 theonionsarewatching
+https://github.com/theonionsarewatching/yapchik
+
+This library is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with this library. If not, see <https://www.gnu.org/licenses/>.
+
+The LGPL (LICENSE) incorporates the terms of the GNU General Public License
+version 3 (LICENSE.GPL-3.0), supplemented by the LGPL's additional permissions.
+
+----
+Vendored into this app from upstream commit bf5021c648ae6adff60644a7cf2633c938d70ead.
+Compiled as a source directory of the app (see build.gradle.kts), not a separate module.
+Local modification (marked in SoftkeyBar.kt): the bar never takes D-pad focus
+(same fix as alltechdev/vela-dpad), guarded so it also runs on Android 6/7.

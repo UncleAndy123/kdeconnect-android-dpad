@@ -53,6 +53,8 @@ class KdeConnect : Application() {
     override fun onCreate() {
         super.onCreate()
         _instance = this
+        // Keypad phones: hardware soft keys replace on-screen chrome (no-op on touch phones)
+        org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.init(this)
         setupSL4JLogging()
         Log.d("KdeConnect/Application", "onCreate")
         ThemeUtil.setUserPreferredTheme(this)

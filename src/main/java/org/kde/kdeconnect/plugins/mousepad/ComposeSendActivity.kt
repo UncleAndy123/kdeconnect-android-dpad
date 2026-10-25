@@ -6,6 +6,9 @@
 
 package org.kde.kdeconnect.plugins.mousepad
 
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -38,7 +41,7 @@ import org.kde.kdeconnect_tp.R
 
 private const val INPUT_CACHE_KEY = "compose_send_input_cache"
 
-class ComposeSendActivity : AppCompatActivity() {
+class ComposeSendActivity : KdeActivity() {
     private lateinit var deviceId: String
     private val userInput = mutableStateOf(String())
     private val prefs by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
@@ -88,6 +91,10 @@ class ComposeSendActivity : AppCompatActivity() {
                 modifier = Modifier.safeDrawingPadding(),
                 topBar = {
                     KdeTopAppBar(
+                        softkeyOptions = listOf(
+                            SoftkeyOption(stringResource(R.string.send_compose)) { sendComposed() },
+                            SoftkeyOption(stringResource(R.string.clear_compose)) { clearComposeInput() },
+                        ),
                         title = stringResource(R.string.compose_send_title),
                         navIconOnClick = { onBackPressedDispatcher.onBackPressed() },
                         navIconDescription = getString(androidx.appcompat.R.string.abc_action_bar_up_description),
@@ -101,18 +108,20 @@ class ComposeSendActivity : AppCompatActivity() {
                     )
                 },
             ) { scaffoldPadding ->
+                // Keypad phones: Send/Clear live in the soft key Options menu, freeing the button row
+                val softkeys = KeypadSoftkeys.rememberActive()
                 Box(modifier = Modifier.padding(scaffoldPadding).fillMaxSize()) {
                     KdeTextField(
                         modifier = Modifier
                             .focusRequester(focusRequester)
                             .padding(horizontal = 16.dp)
-                            .padding(bottom = 80.dp)
+                            .padding(bottom = if (softkeys) 8.dp else 80.dp)
                             .align(Alignment.BottomStart)
                             .fillMaxWidth(),
                         input = userInput,
                         label = stringResource(R.string.click_here_to_type),
                     )
-                    KdeTextButton(
+                    if (!softkeys) KdeTextButton(
                         onClick = { sendComposed() },
                         modifier = Modifier.padding(all = 16.dp).align(Alignment.BottomEnd),
                         enabled = userInput.value.isNotEmpty(),

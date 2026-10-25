@@ -84,6 +84,11 @@ class PluginPreference : SwitchPreference {
         content.isClickable = hasDetails
         widget.isClickable = hasDetails
         parent.isClickable = !hasDetails
+        // D-pad: when the row splits into "settings" + toggle, those halves must take focus
+        // instead of the (now non-clickable) row, or OK does nothing
+        content.isFocusable = hasDetails
+        widget.isFocusable = hasDetails
+        parent.isFocusable = !hasDetails
 
         if (hasDetails) {
             // Cancel duplicate ripple caused by pressed state of parent propagating down

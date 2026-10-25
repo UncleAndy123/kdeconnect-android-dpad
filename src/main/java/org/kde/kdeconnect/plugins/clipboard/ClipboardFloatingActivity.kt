@@ -7,6 +7,7 @@
 
 package org.kde.kdeconnect.plugins.clipboard
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -35,7 +36,7 @@ import org.kde.kdeconnect_tp.R
 
     Currently this activity is being triggered from a button in Foreground Notification or quick settings tile.
  */
-class ClipboardFloatingActivity : AppCompatActivity() {
+class ClipboardFloatingActivity : KdeActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)

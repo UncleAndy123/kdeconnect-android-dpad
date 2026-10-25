@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.kde.kdeconnect.extensions.safeDrawingBottomPadding
 import org.kde.kdeconnect.ui.compose.KdeTheme
+import org.kde.kdeconnect.ui.compose.isTinyScreen
 import org.kde.kdeconnect.ui.compose.components.KdeCard
 import org.kde.kdeconnect.ui.compose.components.KdeThemePreviews
 import org.kde.kdeconnect.ui.compose.components.SectionHeader
@@ -118,7 +119,7 @@ private fun ShareScreenCardContent(device: DeviceUiModel) {
         modifier = Modifier
             .wrapContentSize()
             .defaultMinSize(minHeight = 48.dp)
-            .padding(all = 32.dp),
+            .padding(all = if (isTinyScreen()) 8.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (device.icon > 0) {

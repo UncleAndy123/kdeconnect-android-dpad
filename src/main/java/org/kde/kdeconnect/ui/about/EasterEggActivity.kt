@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.about
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -14,7 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.screen.easteregg.EasterEggScreen
 
-class EasterEggActivity : AppCompatActivity() {
+class EasterEggActivity : KdeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()

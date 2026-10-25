@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.plugins.runcommand
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import android.os.Vibrator
 import android.util.Log
@@ -16,7 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect_tp.R
 
-class RunCommandUrlActivity : AppCompatActivity() {
+class RunCommandUrlActivity : KdeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

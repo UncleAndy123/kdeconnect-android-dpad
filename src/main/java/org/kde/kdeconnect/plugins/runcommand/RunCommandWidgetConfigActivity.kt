@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.plugins.runcommand
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID
 import android.content.Context
@@ -20,7 +21,7 @@ import org.kde.kdeconnect.ui.list.DeviceItem
 import org.kde.kdeconnect.ui.list.ListAdapter
 import org.kde.kdeconnect_tp.databinding.WidgetRemoteCommandPluginDialogBinding
 
-class RunCommandWidgetConfigActivity : AppCompatActivity() {
+class RunCommandWidgetConfigActivity : KdeActivity() {
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 

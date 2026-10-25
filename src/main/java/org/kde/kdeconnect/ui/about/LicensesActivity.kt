@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.about
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,7 +28,7 @@ import org.kde.kdeconnect.ui.compose.screen.licenses.LicensesEvent
 import org.kde.kdeconnect.ui.compose.screen.licenses.LicensesScreen
 import org.kde.kdeconnect_tp.R
 
-class LicensesActivity : AppCompatActivity() {
+class LicensesActivity : KdeActivity() {
 
     private val scrollEvents = MutableSharedFlow<LicensesEvent>()
 

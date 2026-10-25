@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.about
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,7 +24,7 @@ import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.screen.aboutkde.AboutKDEScreen
 import org.kde.kdeconnect_tp.R
 
-class AboutKDEActivity : AppCompatActivity() {
+class AboutKDEActivity : KdeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()

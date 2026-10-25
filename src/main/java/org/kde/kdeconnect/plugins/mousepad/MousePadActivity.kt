@@ -21,6 +21,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.core.view.OnApplyWindowInsetsListener
@@ -158,6 +159,15 @@ class MousePadActivity :
         keyListenerView = binding.keyListener
         keyListenerView.setDeviceId(deviceId)
         ViewCompat.setOnApplyWindowInsetsListener(keyListenerView, this)
+        keyListenerView.onPointerModeChanged = { pointer ->
+            Toast.makeText(this, if (pointer) R.string.mousepad_keypad_pointer_help else R.string.mousepad_keypad_typing_help, Toast.LENGTH_LONG).show()
+            if (!pointer) showKeyboard()
+            invalidateOptionsMenu()
+        }
+        // Phones without a touchscreen can't use the touchpad: start with the keypad as the mouse
+        if (isKeypadDevice) {
+            keyListenerView.pointerMode = true
+        }
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         prefs.registerOnSharedPreferenceChangeListener(this)
@@ -195,7 +205,12 @@ class MousePadActivity :
         invalidateOptionsMenu()
 
         super.onResume()
+
+        if (isKeypadDevice) keyListenerView.requestFocus()
     }
+
+    private val isKeypadDevice: Boolean
+        get() = KeypadSoftkeys.isKeypadDevice(this)
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -233,6 +248,10 @@ class MousePadActivity :
 
         menu.findItem(R.id.menu_right_click).isVisible = !mouseButtonsEnabled
         menu.findItem(R.id.menu_middle_click).isVisible = !mouseButtonsEnabled
+        menu.findItem(R.id.menu_keypad_pointer).apply {
+            isVisible = isKeypadDevice
+            isChecked = keyListenerView.pointerMode
+        }
         return true
     }
 
@@ -244,6 +263,11 @@ class MousePadActivity :
             }
             R.id.menu_middle_click -> {
                 sendMiddleClick()
+                true
+            }
+            R.id.menu_keypad_pointer -> {
+                keyListenerView.pointerMode = !keyListenerView.pointerMode
+                keyListenerView.requestFocus()
                 true
             }
             R.id.menu_open_mousepad_settings -> {
@@ -258,7 +282,11 @@ class MousePadActivity :
                     return true
                 }
                 if (plugin.isKeyboardEnabled) {
-                    toggleKeyboard()
+                    if (keyListenerView.pointerMode) {
+                        keyListenerView.pointerMode = false // shows the keyboard via onPointerModeChanged
+                    } else {
+                        toggleKeyboard()
+                    }
                 } else {
                     Toast.makeText(this, R.string.mousepad_keyboard_input_not_supported, Toast.LENGTH_SHORT).show()
                 }
@@ -628,7 +656,8 @@ class MousePadActivity :
             hideKeyboard()
         }
 
-        if (p.getBoolean(getString(R.string.mousepad_mouse_buttons_enabled_pref), true)) {
+        // Keypad phones click with the keypad (pointer mode); the on-screen buttons only take room
+        if (!isKeypadDevice && p.getBoolean(getString(R.string.mousepad_mouse_buttons_enabled_pref), true)) {
             binding.mouseButtons.visibility = View.VISIBLE
         } else {
             binding.mouseButtons.visibility = View.GONE

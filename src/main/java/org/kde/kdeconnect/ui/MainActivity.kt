@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui
 
+import org.kde.kdeconnect.base.KdeActivity
 import android.Manifest
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
@@ -13,6 +14,9 @@ import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -52,7 +56,7 @@ private const val MENU_ENTRY_DEVICE_UNKNOWN = 9999 //It's still a device, but we
 private const val STATE_SELECTED_MENU_ENTRY = "selected_entry" //Saved only in onSaveInstanceState
 private const val STATE_SELECTED_DEVICE = "selected_device" //Saved persistently in preferences
 
-class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
+class MainActivity : KdeActivity(), OnSharedPreferenceChangeListener {
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
     private val mNavigationView: NavigationView by lazy { binding.navigationDrawer }
     private var mDrawerLayout: DrawerLayout? = null
@@ -100,6 +104,10 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         DeviceHelper.initializeDeviceId(this)
+        // Keypad phones: the toolbar (and its hamburger) is hidden, so offer the drawer from Options
+        KeypadSoftkeys.setExtraOptions(this, listOf(SoftkeyOption(getString(R.string.softkey_devices_settings)) {
+            mDrawerLayout?.openDrawer(mNavigationView)
+        }))
 
         val root = binding.root
         setContentView(root)
@@ -409,4 +417,19 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         }
     }
 
+
+    // Keypad phones: left soft key opens the options menu (like Menu), right soft key the drawer
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_SOFT_LEFT -> {
+                openOptionsMenu()
+                return true
+            }
+            KeyEvent.KEYCODE_SOFT_RIGHT -> mDrawerLayout?.let { drawer ->
+                if (drawer.isDrawerOpen(mNavigationView)) drawer.closeDrawer(mNavigationView) else drawer.openDrawer(mNavigationView)
+                return true
+            }
+        }
+        return super.onKeyUp(keyCode, event)
+    }
 }

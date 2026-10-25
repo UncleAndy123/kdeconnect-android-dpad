@@ -1,0 +1,87 @@
+name: Release build
+
+# Release APKs (arm64-v8a + armeabi-v7a) on every push that touches the app.
+# Docs-only pushes don't build.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "src/**"
+      - "yapchik/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradle/**"
+      - "proguard-rules.pro"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK platform
+        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Release key (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "No RELEASE_KEYSTORE_BASE64 secret: signing with the repo debug key"
+          fi
+
+      - name: Build
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease -PsplitAbis=arm64-v8a,armeabi-v7a
+
+      - name: Collect APKs
+        id: apks
+        run: |
+          version=$(grep -oP 'versionName = "\K[^"]+' build.gradle.kts)
+          short=$(git rev-parse --short HEAD)
+          tag="v${version}-${GITHUB_REF_NAME//\//-}-${GITHUB_RUN_NUMBER}"
+          mkdir out
+          for abi in arm64-v8a armeabi-v7a; do
+            cp "build/outputs/apk/release/kdeconnect-android-${abi}-release.apk" "out/kdeconnect-cadence-${version}-${abi}.apk"
+          done
+          ls -l out
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "title=$version ($GITHUB_REF_NAME, $short)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease="--prerelease"
+          [ "$GITHUB_REF_NAME" = "${{ github.event.repository.default_branch }}" ] && prerelease=""
+          gh release create "${{ steps.apks.outputs.tag }}" out/*.apk \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.apks.outputs.title }}" \
+            --notes "Automatic build of $GITHUB_SHA. See CHANGES-FROM-UPSTREAM.md." \
+            $prerelease

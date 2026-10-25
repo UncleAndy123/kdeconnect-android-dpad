@@ -31,6 +31,11 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
         kdeconnect:showAsAction="ifRoom"/>
 
     <item
+        android:id="@+id/menu_keypad_pointer"
+        android:checkable="true"
+        android:title="@string/mousepad_keypad_pointer"
+        kdeconnect:showAsAction="never" />
+    <item
         android:id="@+id/menu_right_click"
         android:title="@string/right_click"
         kdeconnect:showAsAction="never" />

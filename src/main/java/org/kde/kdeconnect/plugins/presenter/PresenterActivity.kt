@@ -6,6 +6,8 @@
 
 package org.kde.kdeconnect.plugins.presenter
 
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.base.KdeActivity
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.hardware.Sensor
@@ -63,7 +65,7 @@ import org.kde.kdeconnect_tp.R
 private const val VOLUME_UP = 1
 private const val VOLUME_DOWN = -1
 
-class PresenterActivity : AppCompatActivity(), SensorEventListener, OnSharedPreferenceChangeListener {
+class PresenterActivity : KdeActivity(), SensorEventListener, OnSharedPreferenceChangeListener {
 
     private val offScreenControlsSupported = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
     private val mediaSession by lazy {
@@ -106,6 +108,11 @@ class PresenterActivity : AppCompatActivity(), SensorEventListener, OnSharedPref
 
         setContent { PresenterScreen(device.name) }
         createMediaSession()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        (getSystemService(SENSOR_SERVICE) as? SensorManager)?.unregisterListener(this)
     }
 
     override fun onDestroy() {
@@ -182,6 +189,9 @@ class PresenterActivity : AppCompatActivity(), SensorEventListener, OnSharedPref
     private fun PresenterScreen(deviceName: String) {
 
         val sensorManager = LocalContext.current.getSystemService(SENSOR_SERVICE) as? SensorManager
+        // The pointer needs a gyroscope; many keypad phones don't have one
+        val gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        var keyPointerActive by remember { mutableStateOf(false) }
         val haptics = LocalHapticFeedback.current
 
         KdeTheme(this) {
@@ -232,8 +242,17 @@ class PresenterActivity : AppCompatActivity(), SensorEventListener, OnSharedPref
                             icon = Icons.AutoMirrored.Filled.ArrowForward,
                         )
                     }
-                    if (sensorManager != null) KdeButton(
-                        onClick = {},
+                    if (sensorManager != null && gyroscope != null) KdeButton(
+                        // Touch holds the button (below); D-pad OK toggles the pointer instead
+                        onClick = {
+                            keyPointerActive = !keyPointerActive
+                            if (keyPointerActive) {
+                                sensorManager.registerListener(this@PresenterActivity, gyroscope, SensorManager.SENSOR_DELAY_GAME)
+                            } else {
+                                sensorManager.unregisterListener(this@PresenterActivity)
+                                plugin.stopPointer()
+                            }
+                        },
                         colors = ButtonDefaults.filledTonalButtonColors(),
                         modifier = Modifier
                             .fillMaxSize()
@@ -271,6 +290,10 @@ class PresenterActivity : AppCompatActivity(), SensorEventListener, OnSharedPref
         var menuExpanded by remember { mutableStateOf(false) }
 
         KdeTopAppBar(
+            softkeyOptions = listOf(
+                SoftkeyOption(stringResource(R.string.presenter_fullscreen)) { plugin.sendFullscreen() },
+                SoftkeyOption(stringResource(R.string.presenter_exit)) { plugin.sendEsc() },
+            ),
             title = stringResource(R.string.pref_plugin_presenter),
             subTitle = subTitle,
             navIconOnClick = { onBackPressedDispatcher.onBackPressed() },

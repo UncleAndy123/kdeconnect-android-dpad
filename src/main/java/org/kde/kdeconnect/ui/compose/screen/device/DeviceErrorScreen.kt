@@ -8,6 +8,7 @@ package org.kde.kdeconnect.ui.compose.screen.device
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import org.kde.kdeconnect.ui.compose.KdeButton
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.components.KdeBodyLargeText
 import org.kde.kdeconnect.ui.compose.components.KdeThemePreviews
@@ -49,23 +51,31 @@ private fun DeviceErrorScreenContent(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(state = rememberScrollState())
                 .padding(all = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_error_outline_48dp),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                modifier = Modifier.padding(end = 8.dp)
-            )
-            KdeBodyLargeText(
-                text = stringResource(id = R.string.unreachable_description),
-                modifier = Modifier.weight(1f)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_error_outline_48dp),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                KdeBodyLargeText(
+                    text = stringResource(id = R.string.unreachable_description),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            // Pull-to-refresh needs touch; give keypad-only devices a focusable way to retry
+            KdeButton(
+                onClick = onRefresh,
+                text = stringResource(id = R.string.refresh),
+                modifier = Modifier.padding(top = 16.dp)
             )
         }
     }

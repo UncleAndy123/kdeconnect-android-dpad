@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.kde.kdeconnect.extensions.safeDrawingBottomPadding
 import org.kde.kdeconnect.ui.compose.KdeTheme
+import org.kde.kdeconnect.ui.compose.isTinyScreen
 import org.kde.kdeconnect.ui.compose.components.KdeBodyLargeText
 import org.kde.kdeconnect.ui.compose.components.KdeBodyMediumText
 import org.kde.kdeconnect.ui.compose.components.KdeBodySmallText
@@ -244,10 +245,8 @@ fun PairingExplanationRow(
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        KdeBodyMediumText(
-            text = text,
-            onClick = { onClick?.invoke() }
-        )
+        // The Row is already clickable; a clickable Text here would add a dead D-pad focus stop
+        KdeBodyMediumText(text = text)
     }
 }
 
@@ -288,7 +287,7 @@ private fun PairingScreenCardContent(device: DeviceUiModel) {
         modifier = Modifier
             .wrapContentSize()
             .defaultMinSize(minHeight = 48.dp)
-            .padding(all = 32.dp),
+            .padding(all = if (isTinyScreen()) 8.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (device.icon > 0) {
