@@ -205,7 +205,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             }
         }
 
-        if (context.packageName == packageName) {
+        if (context.packageName == packageName || "org.kde.kdeconnect_tp" == packageName || "org.kde.kdeconnect_tp.debug" == packageName) {
             // Don't send our own notifications
             return
         }

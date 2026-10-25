@@ -141,12 +141,14 @@ class RemoteKeyboardPlugin : Plugin() {
         val focus = KdeConnectAccessibilityService.instance?.findFocus(FOCUS_INPUT)
         if (focus == null) {
             val specialKey = SpecialKeys.fromInt(sKey)
-            if (specialKey == SpecialKeys.ESCAPE) {
+            // Below Android 13 there are no D-pad global actions, so arrows grab initial focus and
+            // Esc acts as Back, keeping D-pad-only (keypad) devices navigable
+            val legacy = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            if (legacy && specialKey == SpecialKeys.ESCAPE) {
                 return KdeConnectAccessibilityService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) == true
             }
-            // Arrows also grab initial focus so D-pad-only (keypad) devices can be navigated
-            if (specialKey == SpecialKeys.TAB || specialKey == SpecialKeys.DPAD_LEFT || specialKey == SpecialKeys.DPAD_RIGHT
-                || specialKey == SpecialKeys.DPAD_UP || specialKey == SpecialKeys.DPAD_DOWN) {
+            if (specialKey == SpecialKeys.TAB || (legacy && (specialKey == SpecialKeys.DPAD_LEFT || specialKey == SpecialKeys.DPAD_RIGHT
+                || specialKey == SpecialKeys.DPAD_UP || specialKey == SpecialKeys.DPAD_DOWN))) {
                 KdeConnectAccessibilityService.instance?.findNodeByAction(
                     KdeConnectAccessibilityService.instance?.rootInActiveWindow,
                     AccessibilityNodeInfo.AccessibilityAction.ACTION_FOCUS
@@ -534,7 +536,29 @@ class RemoteKeyboardPlugin : Plugin() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focus.isShowingHintText) return null
         // Fallback: some apps return hint as real text but report selection -1,-1
         if (focus.textSelectionStart == -1 && focus.textSelectionEnd == -1) return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && isLegacyHint(focus)) return null
         return focus.text?.toString()
     }
+
+    /**
+     * Before API 26 an empty TextView reports its hint as text, with the cursor at 0,0.
+     * TextView validates ACTION_SET_SELECTION against its real text, so a selection of
+     * 1,1 is refused when the field is actually empty. Only probe nodes that advertise
+     * the action, so fields that don't support it keep their text.
+     */
+    private fun isLegacyHint(focus: AccessibilityNodeInfo): Boolean {
+        if (!focus.isEditable || focus.text.isNullOrEmpty()) return false
+        if (focus.textSelectionStart != 0 || focus.textSelectionEnd != 0) return false
+        if (!focus.actionList.contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_SELECTION)) return false
+        if (!focus.setSelectionResult(1, 1)) return true
+        focus.setSelection(0, 0)
+        return false
+    }
+
+    private fun AccessibilityNodeInfo.setSelectionResult(start: Int, end: Int): Boolean =
+        performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, start)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, end)
+        })
 
 }

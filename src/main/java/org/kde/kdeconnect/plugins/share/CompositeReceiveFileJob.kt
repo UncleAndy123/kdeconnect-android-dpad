@@ -162,7 +162,11 @@ class CompositeReceiveFileJob(device: Device, callBack: Callback<Unit>)
                         }
                     }
                 } else if (packet.has("lastModified")) {
-                    fileDocument.uri.path?.let { java.io.File(it).setLastModified(packet.getLong("lastModified")) }
+                    try {
+                        fileDocument.uri.path?.let { java.io.File(it).setLastModified(packet.getLong("lastModified")) }
+                    } catch (e: Exception) {
+                        Log.e("SharePlugin", "Can't set date on file", e)
+                    }
                 }
 
                 synchronized(lock) {

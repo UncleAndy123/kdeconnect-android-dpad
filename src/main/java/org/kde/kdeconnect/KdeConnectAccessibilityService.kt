@@ -287,13 +287,16 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
         for (i in 1 until points.size) {
             dragLength += hypot((points[i].x - points[i - 1].x).toDouble(), (points[i].y - points[i - 1].y).toDouble())
         }
+        // Margin past the timeout so the long-press reliably registers
+        val holdMs = ViewConfiguration.getLongPressTimeout() + 200L
         if (dragLength < 1) {
-            return dispatchGesture(createClick(start.x, start.y, ViewConfiguration.getLongPressTimeout()), null, null)
+            return dispatchGesture(createClick(start.x, start.y, holdMs.toInt()), null, null)
         }
 
         // Stroke time is spread evenly over path length, so the hold is made of jitter length.
-        val holdMs = ViewConfiguration.getLongPressTimeout() + 200L
-        val dragMs = (dragLength / 2).toLong().coerceIn(200L, 5000L)
+        // Android 7 samples injected gestures every ~100ms; keep the move long enough for
+        // several intermediate events.
+        val dragMs = dragLength.toLong().coerceIn(500L, 5000L)
         val jitterSegments = ceil(dragLength * holdMs / dragMs).toInt()
         val jitter = if (start.x > 0) -1f else 1f
 
