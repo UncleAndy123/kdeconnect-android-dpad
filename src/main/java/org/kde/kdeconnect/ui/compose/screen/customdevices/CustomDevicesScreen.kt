@@ -6,6 +6,10 @@
 
 package org.kde.kdeconnect.ui.compose.screen.customdevices
 
+import androidx.compose.material3.FloatingActionButtonDefaults
+import org.kde.kdeconnect.ui.keypad.KeypadDialogButton
+import org.kde.kdeconnect.ui.keypad.KeypadDialog
+import org.kde.kdeconnect.ui.keypad.rememberKeypadDevice
 import org.kde.kdeconnect.ui.keypad.SoftKey
 import org.kde.kdeconnect.ui.keypad.keypadAutoFocus
 import org.kde.kdeconnect.ui.keypad.keypadFieldEscape
@@ -135,7 +139,7 @@ private fun CustomDevicesScreen(
         },
         floatingActionButton = {
             // On keypad phones "Add device" is in the soft key Options menu instead
-            if (!KeypadSoftkeys.rememberActive()) FloatingActionButton(onClick = onAddClicked) {
+            if (!KeypadSoftkeys.rememberActive()) FloatingActionButton(onClick = onAddClicked, modifier = Modifier.keypadFocusRing(FloatingActionButtonDefaults.shape)) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = stringResource(R.string.add_device_dialog_title)
@@ -278,10 +282,7 @@ private fun AddEditDeviceDialog(
     val invalidLabel = stringResource(R.string.device_host_invalid)
     val duplicateLabel = stringResource(R.string.device_host_duplicate)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_device_dialog_title)) },
-        text = {
+    val field: @Composable () -> Unit = {
             OutlinedTextField(
                 value = text,
                 onValueChange = {
@@ -298,7 +299,33 @@ private fun AddEditDeviceDialog(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth().keypadFieldEscape().keypadAutoFocus()
             )
-        },
+    }
+    val confirm = {
+        when (onConfirm(text)) {
+            SaveResult.Success -> Unit // Do Nothing
+            SaveResult.InvalidHost -> errorMessage = invalidLabel
+            SaveResult.Duplicate -> errorMessage = duplicateLabel
+        }
+    }
+    if (rememberKeypadDevice()) {
+        // Keypad: vela-style dialog (the field takes focus on open; arrows reach the buttons)
+        KeypadDialog(
+            onDismissRequest = onDismiss,
+            title = stringResource(R.string.add_device_dialog_title),
+            buttons = listOfNotNull(
+                onDelete?.let { KeypadDialogButton(stringResource(R.string.sftp_action_mode_menu_delete), it) },
+                KeypadDialogButton(stringResource(R.string.cancel), onDismiss),
+                KeypadDialogButton(stringResource(R.string.ok), { confirm() }, filled = true),
+            ),
+            autoFocusIndex = null,
+            text = field,
+        )
+        return
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_device_dialog_title)) },
+        text = field,
         confirmButton = {
             TextButton(
                 onClick = {

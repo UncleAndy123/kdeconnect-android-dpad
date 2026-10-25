@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
+-->
+<!-- Phones with no touchscreen (keypad phones): no "tap" wording, the key is OK -->
+<resources>
+    <string name="plugins_need_permission">Some Plugins need permissions to work (press OK for more info):</string>
+    <string name="plugins_need_optional_permission">Some plugins have features disabled because of lack of permission (press OK for more info):</string>
+    <string name="tap_to_open">Press OK to open</string>
+    <string name="received_file_text">Press OK to open \'%1s\'</string>
+    <string name="tap_to_answer">Press OK to answer</string>
+    <string name="setting_persistent_notification_description">Press OK to enable/disable in Notification settings</string>
+    <string name="click_here_to_type">Type here</string>
+    <string name="tap_to_execute">Press OK to execute</string>
+    <string name="custom_device_list_help">If your device is not automatically detected, you can add its IP address or hostname with the Add device key</string>
+</resources>

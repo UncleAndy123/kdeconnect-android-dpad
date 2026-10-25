@@ -24,6 +24,11 @@ class DigitizerPlugin : Plugin() {
     override val description: String
         get() = context.resources.getString(R.string.pref_plugin_digitizer_desc)
 
+    // A drawing tablet needs a touchscreen: not offered on keypad-only phones
+    override val isCompatible: Boolean
+        get() = super.isCompatible &&
+            context.resources.configuration.touchscreen != android.content.res.Configuration.TOUCHSCREEN_NOTOUCH
+
     override val isEnabledByDefault: Boolean
         get() = DeviceHelper.isTablet
 

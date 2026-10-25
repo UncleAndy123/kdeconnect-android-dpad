@@ -266,6 +266,10 @@ object KeypadSoftkeys {
     fun menuOptionsKey(activity: Activity, extra: List<SoftkeyOption> = emptyList(), exclude: Set<Int> = emptySet()) =
         SoftKey(activity.getString(R.string.softkey_options)) { showMenuOptions(activity, extra, exclude) }
 
+    /** The same bottom-left menu, for a screen's own choosers (e.g. a row's long-press menu). */
+    fun showMenu(activity: Activity, options: List<SoftkeyOption>) =
+        showMenuDialog(activity, options.map { it.label to it.onClick })
+
     /** LEFT "Options" key showing exactly [options]. */
     fun optionsKey(activity: Activity, options: List<SoftkeyOption>) =
         SoftKey(activity.getString(R.string.softkey_options)) {

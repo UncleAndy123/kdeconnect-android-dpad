@@ -6,6 +6,7 @@
 
 package org.kde.kdeconnect.ui.compose.screen.about
 
+import androidx.compose.material3.CardDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import org.kde.kdeconnect.ui.keypad.keypadFocusRing
 import android.content.ClipData
@@ -117,7 +118,7 @@ private fun AppInfoCard(
     val context = LocalContext.current
 
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().keypadFocusRing(CardDefaults.elevatedShape),
         onClick = {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Version", aboutData.versionName))

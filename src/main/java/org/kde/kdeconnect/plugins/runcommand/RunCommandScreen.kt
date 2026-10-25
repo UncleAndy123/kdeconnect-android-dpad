@@ -1,5 +1,9 @@
 package org.kde.kdeconnect.plugins.runcommand
 
+import androidx.compose.material3.FloatingActionButtonDefaults
+import org.kde.kdeconnect.ui.keypad.KeypadDialogButton
+import org.kde.kdeconnect.ui.keypad.KeypadDialog
+import org.kde.kdeconnect.ui.keypad.rememberKeypadDevice
 import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -83,6 +87,9 @@ fun RunCommandScreen(
     onUpdate: () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
+    val keypad = rememberKeypadDevice()
+    val activity = LocalActivity.current
+    val copyUrlLabel = stringResource(R.string.copy_url_to_clipboard)
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -124,7 +131,7 @@ fun RunCommandScreen(
             floatingActionButton = {
                 // On keypad phones "Add command" is in the soft key Options menu instead
                 if (plugin.canAddCommand() && !KeypadSoftkeys.rememberActive()) {
-                    FloatingActionButton(onClick = {
+                    FloatingActionButton(modifier = Modifier.keypadFocusRing(FloatingActionButtonDefaults.shape), onClick = {
                         plugin.sendSetupPacket()
                         showDialog = true
                     }) {
@@ -136,7 +143,21 @@ fun RunCommandScreen(
                 }
             },
         ) {
-            if (showDialog) {
+            if (showDialog && keypad) {
+                KeypadDialog(
+                    onDismissRequest = {
+                        showDialog = false
+                        onUpdate()
+                    },
+                    title = stringResource(R.string.add_command),
+                    buttons = listOf(KeypadDialogButton(stringResource(R.string.ok), {
+                        showDialog = false
+                        onUpdate()
+                    }, filled = true)),
+                ) {
+                    Text(stringResource(R.string.add_command_description))
+                }
+            } else if (showDialog) {
                 AlertDialog(
                     title = {
                         Text(
@@ -199,7 +220,15 @@ fun RunCommandScreen(
                                         onClick = { plugin.runCommand(command.key) },
                                         onLongClick = {
                                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            menuExpanded = true
+                                            // Keypad (hold OK): a DropdownMenu can't be pre-focused, so
+                                            // use the auto-focused keypad menu instead (vela's VelaMenu)
+                                            if (keypad && activity != null) {
+                                                KeypadSoftkeys.showMenu(activity, listOf(
+                                                    SoftkeyOption(copyUrlLabel) { onCopyUrlToClipboard(command) }
+                                                ))
+                                            } else {
+                                                menuExpanded = true
+                                            }
                                         }
                                     )
                             ) {
