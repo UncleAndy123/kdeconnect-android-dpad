@@ -45,6 +45,12 @@ android {
         versionCode = 13700
         versionName = "1.37.0"
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        // CI passes -PbuildNumber=<run number> so every build has its own version (1.37.0-cadence.N) and a higher
+        // versionCode, also above any earlier build once upstream bumps its version. Local builds keep upstream's.
+        (findProperty("buildNumber") as String?)?.toIntOrNull()?.let { build ->
+            versionCode = versionCode!! * 10000 + build
+            versionName = "$versionName-cadence.$build"
+        }
     }
     buildFeatures {
         viewBinding = true

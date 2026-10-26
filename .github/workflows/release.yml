@@ -60,17 +60,18 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease -PsplitAbis=arm64-v8a,armeabi-v7a
+        run: ./gradlew --no-daemon assembleRelease -PsplitAbis=arm64-v8a,armeabi-v7a -PbuildNumber=$GITHUB_RUN_NUMBER
 
       - name: Collect APKs
         id: apks
         run: |
-          version=$(grep -oP 'versionName = "\K[^"]+' build.gradle.kts)
+          version=$(jq -r '.elements[0].versionName' build/outputs/apk/release/output-metadata.json)
+          jq -r '.elements[] | "\(.filters[0].value): versionName \(.versionName), versionCode \(.versionCode)"' build/outputs/apk/release/output-metadata.json
           short=$(git rev-parse --short HEAD)
-          tag="v${version}-${GITHUB_REF_NAME//\//-}-${GITHUB_RUN_NUMBER}"
+          tag="v${version}-${GITHUB_REF_NAME//\//-}"
           mkdir out
           for abi in arm64-v8a armeabi-v7a; do
-            cp "build/outputs/apk/release/kdeconnect-android-${abi}-release.apk" "out/kdeconnect-cadence-${version}-${abi}.apk"
+            cp "build/outputs/apk/release/kdeconnect-android-${abi}-release.apk" "out/kdeconnect-${version}-${abi}.apk"
           done
           ls -l out
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
