@@ -198,6 +198,43 @@ class RemoteKeyboardIMEPluginTest {
         verify { inputConnection.commitText("Hello", 5) }
     }
 
+    private fun createHiddenEditingService(inputConnection: InputConnection, keypad: Boolean): RemoteKeyboardService {
+        val service = object : RemoteKeyboardService() {
+            override fun getCurrentInputConnection(): InputConnection = inputConnection
+            override val keypadDevice: Boolean = keypad
+        }
+        service.visible = false // a hardware keypad keeps the soft keyboard hidden
+        service.editing = true
+        return service
+    }
+
+    @Test
+    fun testKeypadPhoneTypesWhileEditingWithKeyboardHidden() {
+        val inputConnection = mockk<InputConnection>(relaxed = true)
+        every { inputConnection.commitText(any(), any()) } returns true
+
+        RemoteKeyboardService.instance = createHiddenEditingService(inputConnection, keypad = true)
+
+        val np = NetworkPacket("kdeconnect.mousepad.request")
+        np["key"] = "Hi"
+        Assert.assertTrue(remoteKeyboardPlugin.onPacketReceived(np))
+
+        verify { inputConnection.commitText("Hi", 2) }
+    }
+
+    @Test
+    fun testTouchPhoneStillDropsKeysWhileKeyboardHidden() {
+        val inputConnection = mockk<InputConnection>(relaxed = true)
+
+        RemoteKeyboardService.instance = createHiddenEditingService(inputConnection, keypad = false)
+
+        val np = NetworkPacket("kdeconnect.mousepad.request")
+        np["key"] = "Hi"
+        Assert.assertFalse(remoteKeyboardPlugin.onPacketReceived(np))
+
+        verify(exactly = 0) { inputConnection.commitText(any(), any()) }
+    }
+
     @Test
     fun testKeyboardPacketSendsAck() {
         val inputConnection = mockk<InputConnection>(relaxed = true)

@@ -86,9 +86,15 @@ class PluginPreference : SwitchPreference {
         parent.isClickable = !hasDetails
         // D-pad: when the row splits into "settings" + toggle, those halves must take focus
         // instead of the (now non-clickable) row, or OK does nothing
+        val hadFocus = parent.hasFocus()
         content.isFocusable = hasDetails
         widget.isFocusable = hasDetails
         parent.isFocusable = !hasDetails
+        // Toggling it from the keypad must not drop focus (it would jump to the top of the list):
+        // keep it on the switch, which is the row's toggle in both layouts
+        if (hadFocus && !parent.hasFocus()) {
+            if (hasDetails) widget.requestFocus() else parent.requestFocus()
+        }
 
         if (hasDetails) {
             // Cancel duplicate ripple caused by pressed state of parent propagating down

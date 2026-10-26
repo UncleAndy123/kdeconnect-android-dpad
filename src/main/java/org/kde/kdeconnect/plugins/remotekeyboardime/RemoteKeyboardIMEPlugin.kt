@@ -220,7 +220,7 @@ class RemoteKeyboardIMEPlugin : Plugin(), SharedPreferences.OnSharedPreferenceCh
 
         val service = RemoteKeyboardService.instance ?: return false // This packet will be handled by the RemoteKeyboardPlugin instead, silently ignore
 
-        if (!service.visible && preferences.getBoolean(context.getString(R.string.remotekeyboard_editing_only), true)) {
+        if (!service.acceptsKeys && preferences.getBoolean(context.getString(R.string.remotekeyboard_editing_only), true)) {
             Log.i(LOG_TAG, "Remote keyboard is currently not visible, dropping key")
             return false
         }
@@ -269,8 +269,8 @@ class RemoteKeyboardIMEPlugin : Plugin(), SharedPreferences.OnSharedPreferenceCh
     val isKeyboardAvailable: Boolean
         get() {
             val editingOnly = preferences.getBoolean(context.getString(R.string.remotekeyboard_editing_only), true)
-            val visible = RemoteKeyboardService.instance?.visible == true
-            return !editingOnly || visible
+            val accepting = RemoteKeyboardService.instance?.acceptsKeys == true
+            return !editingOnly || accepting
         }
 
     val deviceId: String

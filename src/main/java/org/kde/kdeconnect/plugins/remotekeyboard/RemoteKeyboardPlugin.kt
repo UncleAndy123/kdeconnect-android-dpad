@@ -92,7 +92,7 @@ class RemoteKeyboardPlugin : Plugin() {
             return false
         }
 
-        if (RemoteKeyboardService.instance?.visible == true) {
+        if (RemoteKeyboardService.instance?.acceptsKeys == true) {
             return false // This packet will be handled by the RemoteKeyboardIMEPlugin instead, silently ignore
         }
 

@@ -13,6 +13,7 @@ import android.inputmethodservice.KeyboardView
 import android.inputmethodservice.KeyboardView.OnKeyboardActionListener
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
@@ -23,6 +24,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.ContextCompat
 import org.kde.kdeconnect.ui.MainActivity
 import org.kde.kdeconnect.ui.PluginSettingsActivity
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import org.kde.kdeconnect_tp.R
 
 open class RemoteKeyboardService :
@@ -34,6 +36,45 @@ open class RemoteKeyboardService :
      */
     @VisibleForTesting
     var visible: Boolean = false
+
+    /**
+     * Whether an editor is focused while this is the input method. Android keeps a soft keyboard hidden
+     * while a hardware keypad is in use, so on keypad phones [visible] never turns true.
+     */
+    @VisibleForTesting
+    internal var editing = false
+
+    @VisibleForTesting
+    internal open val keypadDevice: Boolean by lazy { KeypadSoftkeys.isKeypadDevice(this) }
+
+    /** Whether remote keys go to the focused editor through this keyboard: it is shown, or (keypad phones) editing. */
+    val acceptsKeys: Boolean
+        get() = visible || (editing && keypadDevice)
+
+    private fun notifyKeyboardState(state: Boolean) {
+        val instances = RemoteKeyboardIMEPlugin.acquireInstances()
+        try {
+            for (i in instances) {
+                i.notifyKeyboardState(state)
+            }
+        } finally {
+            RemoteKeyboardIMEPlugin.releaseInstances()
+        }
+    }
+
+    override fun onStartInput(attribute: EditorInfo, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        val before = acceptsKeys
+        editing = attribute.inputType != InputType.TYPE_NULL
+        if (acceptsKeys != before) notifyKeyboardState(acceptsKeys)
+    }
+
+    override fun onFinishInput() {
+        super.onFinishInput()
+        val before = acceptsKeys
+        editing = false
+        if (acceptsKeys != before) notifyKeyboardState(acceptsKeys)
+    }
 
     private var inputView: KeyboardView? = null
 
@@ -84,14 +125,7 @@ open class RemoteKeyboardService :
 //        Log.d("RemoteKeyboardService", "onStartInputView");
         super.onStartInputView(attribute, restarting)
         visible = true
-        val instances = RemoteKeyboardIMEPlugin.acquireInstances()
-        try {
-            for (i in instances) {
-                i.notifyKeyboardState(true)
-            }
-        } finally {
-            RemoteKeyboardIMEPlugin.releaseInstances()
-        }
+        notifyKeyboardState(true)
 
         window?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
@@ -100,14 +134,7 @@ open class RemoteKeyboardService :
 //        Log.d("RemoteKeyboardService", "onFinishInputView");
         super.onFinishInputView(finishingInput)
         visible = false
-        val instances = RemoteKeyboardIMEPlugin.acquireInstances()
-        try {
-            for (i in instances) {
-                i.notifyKeyboardState(false)
-            }
-        } finally {
-            RemoteKeyboardIMEPlugin.releaseInstances()
-        }
+        notifyKeyboardState(acceptsKeys)
 
         window?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }

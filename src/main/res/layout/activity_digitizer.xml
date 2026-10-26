@@ -27,6 +27,17 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:keepScreenOn="true" />
+        <TextView
+            android:id="@+id/keypad_help"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="?attr/colorSurfaceContainerHighest"
+            android:gravity="center"
+            android:padding="4dp"
+            android:text="@string/digitizer_keypad_help"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:visibility="gone" />
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/button_draw"

@@ -26,6 +26,8 @@ import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.base.BaseActivity
 import org.kde.kdeconnect.extensions.viewBinding
 import org.kde.kdeconnect.ui.PluginSettingsActivity
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftKey
 import org.kde.kdeconnect_tp.R
 import org.kde.kdeconnect_tp.databinding.ActivityDigitizerBinding
 import kotlin.math.roundToInt
@@ -38,6 +40,8 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
     private lateinit var fullscreenBackCallback: OnBackPressedCallback
 
     private lateinit var deviceId: String
+
+    private var keypad = false
 
     private val plugin: DigitizerPlugin?
         get() {
@@ -65,6 +69,11 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
 
         binding.drawingPad.eventListener = this
+
+        // Keypad phones have no touchscreen: the keypad drives a pen cursor (see DrawingPadView)
+        keypad = KeypadSoftkeys.isKeypadDevice(this)
+        binding.drawingPad.keypadPen = keypad
+        binding.keypadHelp.visibility = if (keypad) View.VISIBLE else View.GONE
 
         @SuppressLint("ClickableViewAccessibility")
         binding.buttonDraw.setOnTouchListener { _, event ->
@@ -122,9 +131,10 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
                 (resources.displayMetrics.xdpi * INCHES_TO_MM).roundToInt(),
                 (resources.displayMetrics.ydpi * INCHES_TO_MM).roundToInt()
             )
+            binding.drawingPad.startKeypadPen()
         }
 
-        if (prefHideDrawButton) {
+        if (prefHideDrawButton || keypad) {
             binding.buttonDraw.visibility = View.GONE
         }
 
@@ -137,6 +147,24 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
                 "bottom_right" -> it.gravity = Gravity.BOTTOM or Gravity.RIGHT
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (keypad) {
+            bindKeypadKeys()
+            binding.drawingPad.requestFocus()
+        }
+    }
+
+    /** LEFT = Options, RIGHT = put the pen down / lift it (also OK or 5). */
+    private fun bindKeypadKeys() {
+        val pen = if (binding.drawingPad.penDown) R.string.digitizer_pen_up else R.string.digitizer_pen_down
+        KeypadSoftkeys.bind(this, KeypadSoftkeys.menuOptionsKey(this), SoftKey(getString(pen)) { binding.drawingPad.togglePen() })
+    }
+
+    override fun onKeypadPenChanged() {
+        if (keypad) bindKeypadKeys()
     }
 
     override fun onStop() {
