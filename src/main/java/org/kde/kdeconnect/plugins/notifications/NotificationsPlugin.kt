@@ -142,7 +142,8 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
         } else {
             null
         }
-        val id = "kdeconnect.sms|$sender|$time"
+        // Another SMS from a contact whose notification is already on the desktop: update that one
+        val id = keyByAlias.keys.firstOrNull { it.startsWith("kdeconnect.sms|$sender|") } ?: "kdeconnect.sms|$sender|$time"
         earlySms.add(EarlySms(id, sender, name, body))
 
         val np = NetworkPacket(PACKET_TYPE_NOTIFICATION)
@@ -166,7 +167,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             }
         }
         if (!appDatabase.getPrivacy(smsApp, AppDatabase.PrivacyOptions.BLOCK_CONTENTS)) {
-            val title = name ?: sender
+            val title = name ?: (PhoneNumberUtils.formatNumber(sender, Locale.getDefault().country) ?: sender)
             np["title"] = title
             np["text"] = body
             np["ticker"] = "$title: $body"
@@ -175,7 +176,8 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
 
         // The SMS app never posted one (e.g. that conversation is open on the phone, or muted): take it back
         workHandler.postDelayed({
-            if (takeEarly(id)) {
+            // (unless it updated a notification the SMS app has posted: that one stays)
+            if (takeEarly(id) && !keyByAlias.containsKey(id)) {
                 notificationsIcons.remove(id)
                 device.sendPacket(NetworkPacket(PACKET_TYPE_NOTIFICATION).apply {
                     this["id"] = id
@@ -670,7 +672,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             }
         } else if (np.has("cancel")) {
             val desktopId = np.getString("cancel")
-            if (takeEarly(desktopId)) return true // only ever on the desktop
+            if (takeEarly(desktopId) && !keyByAlias.containsKey(desktopId)) return true // only ever on the desktop
             val dismissedId = keyByAlias.remove(desktopId) ?: desktopId
             aliasByKey.remove(dismissedId)
             currentNotifications.remove(dismissedId)
