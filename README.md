@@ -48,15 +48,17 @@ Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204
 
 | | Before | Now |
 |---|---|---|
-| Whole conversation list sent to the desktop | 36.3 s | **12.8 s** |
-| Contacts (vCards) sent | 11.8 s | **8.3 s** |
-| An SMS sent from the desktop shows up as sent | 4.7 s | **2.8 s** |
+| Whole conversation list sent to the desktop | 36.3 s | **10.2 s** |
+| Contacts (vCards) sent | 11.8 s | **4.2 s** |
+| An SMS sent from the desktop shows up as sent | 4.7 s | **1–3.7 s** |
+| A text arrives: the desktop shows its notification | 3.6–7.2 s | **0.9–1.8 s** |
+| App size (release APK) | 7.4 MB | **6.3 MB** |
 
-Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
+Contacts no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
 
-Notifications are built off the UI thread, and MMS photo thumbnails are decoded at thumbnail size instead of full resolution. Opening a 3,000-message conversation on the desktop takes 0.7 s for the newest 50 messages and 0.2 s for each 50 older.
+A text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup.
 
-In progress (being measured): app start no longer creates every plugin on the UI thread; contacts built from one database query instead of one round trip per contact; new texts keep reaching the computer after Android kills the app in the background; Find my phone prepares its ringtone only when it rings; network discovery runs for a minute after each network change or Refresh instead of all the time.
+Every screen is plain Android views: Jetpack Compose is gone, so the app is smaller and its screens load less code. App start builds the plugin list off the UI thread. Notifications are built off the UI thread, and MMS photo thumbnails are decoded at thumbnail size instead of full resolution. Opening a 3,000-message conversation on the desktop takes 0.5 s for the newest 50 messages. New texts keep reaching the computer after Android kills the app in the background; Find my phone prepares its ringtone only when it rings; network discovery runs for a minute after each network change or Refresh instead of all the time.
 
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 
