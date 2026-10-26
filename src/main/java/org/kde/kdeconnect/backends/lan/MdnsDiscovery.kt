@@ -15,6 +15,8 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiManager.MulticastLock
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
 import org.kde.kdeconnect.helpers.DeviceHelper
@@ -57,10 +59,20 @@ class MdnsDiscovery {
             discoveryListener = createDiscoveryListener()
             mNsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
         }
+        // Discover for a while, not for as long as the app runs: discovery holds a multicast lock (the Wi-Fi chip
+        // then wakes the phone for every multicast packet on the network) and keeps the mDNS daemon busy, which a
+        // low-end phone pays for in battery and CPU. It starts again on every network change and on Refresh,
+        // and computers still find this phone through its own announcement and its UDP broadcasts.
+        stopHandler.removeCallbacks(stopRunnable)
+        stopHandler.postDelayed(stopRunnable, DISCOVERY_WINDOW_MS)
     }
+
+    private val stopHandler = Handler(Looper.getMainLooper())
+    private val stopRunnable = Runnable { stopDiscovering() }
 
     @Synchronized
     fun stopDiscovering() {
+        stopHandler.removeCallbacks(stopRunnable)
         if (discoveryListener != null) {
             try {
                 mNsdManager.stopServiceDiscovery(discoveryListener)
@@ -241,5 +253,8 @@ class MdnsDiscovery {
         const val LOG_TAG: String = "MdnsDiscovery"
 
         const val SERVICE_TYPE: String = "_kdeconnect._udp"
+
+        /** How long a discovery runs (see startDiscovering) */
+        const val DISCOVERY_WINDOW_MS: Long = 60_000
     }
 }

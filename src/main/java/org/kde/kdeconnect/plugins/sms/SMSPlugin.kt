@@ -17,6 +17,7 @@ import android.database.ContentObserver
 import android.os.Handler
 import androidx.annotation.WorkerThread
 import androidx.core.content.ContextCompat
+import androidx.preference.PreferenceManager
 import com.klinker.android.logger.Log
 import com.klinker.android.send_message.Transaction
 import kotlinx.serialization.json.JsonArray
@@ -57,6 +58,18 @@ class SMSPlugin : Plugin() {
      * If not, we will not send updates, since probably the user doesn't care.
      */
     private var haveMessagesBeenRequested: Boolean = false
+        set(value) {
+            // Remembered across restarts of the app: a low-memory phone kills the app in the background often,
+            // and the computer's SMS window doesn't ask again on reconnect, so new messages would stop showing up
+            if (value && !field) {
+                PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putBoolean(messagesRequestedKey, true).apply()
+            }
+            field = value
+        }
+
+    private val messagesRequestedKey: String
+        get() = "sms_messages_requested_${device.deviceId}"
 
     private inner class MessageContentObserver
     /**
@@ -145,6 +158,9 @@ class SMSPlugin : Plugin() {
         mostRecentTimestampLock.lock()
         mostRecentTimestamp = getNewestMessageTimestamp(context)
         mostRecentTimestampLock.unlock()
+
+        haveMessagesBeenRequested = PreferenceManager.getDefaultSharedPreferences(context)
+            .getBoolean(messagesRequestedKey, false)
     }
 
     override fun onDestroy() {

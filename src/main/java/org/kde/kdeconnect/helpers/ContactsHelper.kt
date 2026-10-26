@@ -134,8 +134,105 @@ object ContactsHelper {
      * @return map of raw contact IDs to the corresponding VCard.
      */
     fun getVCardsForContactIDs(context: Context, ids: Collection<uID>): Map<uID, VCardBuilder> {
-        return getVCardsSlow(context, ids)
+        val fast = try {
+            getVCardsFromData(context, ids)
+        } catch (e: Exception) {
+            Log.e(TAG, "Building vCards from the contact data failed, asking the provider for each one", e)
+            emptyMap()
+        }
+        val missing = ids.filter { it !in fast }
+        return if (missing.isEmpty()) fast else fast + getVCardsSlow(context, missing)
     }
+
+    /**
+     * Builds the vCards from one query over the contact data table, instead of asking the provider to compose
+     * one vCard per contact (a round trip each, ~0.3 s per contact on a slow phone). Carries what the desktop uses:
+     * name, phone numbers, email addresses, organisation, nickname and the contact photo thumbnail.
+     */
+    private fun getVCardsFromData(context: Context, ids: Collection<uID>): Map<uID, VCardBuilder> {
+        if (ids.isEmpty()) return emptyMap()
+        val wanted = ids.associateBy { it.toString() }
+        val mimeTypes = listOf(
+            ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE,
+        )
+        val projection = arrayOf(
+            ContactsContract.Data.LOOKUP_KEY, ContactsContract.Data.MIMETYPE, ContactsContract.Data.DISPLAY_NAME,
+            ContactsContract.Data.DATA1, ContactsContract.Data.DATA2, ContactsContract.Data.DATA3,
+            ContactsContract.Data.DATA4, ContactsContract.Data.DATA5, ContactsContract.Data.DATA6,
+            ContactsContract.Data.DATA15,
+        )
+        val keys = wanted.keys.toList()
+        val selection = ContactsContract.Data.MIMETYPE + " IN (" + mimeTypes.joinToString(",") { "?" } + ") AND " +
+            ContactsContract.Data.LOOKUP_KEY + " IN (" + keys.joinToString(",") { "?" } + ")"
+        val cards = LinkedHashMap<String, VCardData>()
+        context.contentResolver.query(
+            ContactsContract.Data.CONTENT_URI, projection, selection, (mimeTypes + keys).toTypedArray(), null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val key = c.getString(0) ?: continue
+                val card = cards.getOrPut(key) { VCardData() }
+                if (card.displayName == null) card.displayName = c.getString(2)
+                when (c.getString(1)) {
+                    ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE ->
+                        // N: family;given;middle;prefix;suffix
+                        // (DATA3 family, DATA2 given, DATA5 middle, DATA4 prefix, DATA6 suffix)
+                        card.name = listOf(5, 4, 7, 6, 8).map { col -> c.getString(col).orEmpty() }
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> c.getString(3)?.let { number ->
+                        val type = when (c.getInt(4)) {
+                            ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE -> "CELL"
+                            ContactsContract.CommonDataKinds.Phone.TYPE_HOME -> "HOME"
+                            ContactsContract.CommonDataKinds.Phone.TYPE_WORK -> "WORK"
+                            else -> "VOICE"
+                        }
+                        card.lines.add("TEL;TYPE=$type:" + escape(number))
+                    }
+                    ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE -> c.getString(3)?.let { email ->
+                        card.lines.add("EMAIL;TYPE=INTERNET:" + escape(email))
+                    }
+                    ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE -> {
+                        c.getString(3)?.let { card.lines.add("ORG:" + escape(it)) }
+                        c.getString(6)?.let { card.lines.add("TITLE:" + escape(it)) }
+                    }
+                    ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE -> c.getString(3)?.let {
+                        card.lines.add("NICKNAME:" + escape(it))
+                    }
+                    ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE -> c.getBlob(9)?.let { photo ->
+                        card.lines.add("PHOTO;ENCODING=b;TYPE=JPEG:" + Base64.encodeToString(photo, Base64.NO_WRAP))
+                    }
+                }
+            }
+        }
+        val toReturn = HashMap<uID, VCardBuilder>()
+        for ((key, card) in cards) {
+            val id = wanted[key] ?: continue
+            val fn = card.displayName ?: card.name?.let { listOf(it[1], it[2], it[0]).filter(String::isNotEmpty).joinToString(" ") } ?: ""
+            val n = card.name ?: listOf("", fn, "", "", "")
+            val vcard = StringBuilder()
+                .append("BEGIN:VCARD\r\n")
+                .append("VERSION:3.0\r\n")
+                .append("N:").append(n.joinToString(";") { escape(it) }).append("\r\n")
+                .append("FN:").append(escape(fn)).append("\r\n")
+            card.lines.distinct().forEach { vcard.append(it).append("\r\n") }
+            vcard.append(VCardBuilder.VCARD_END)
+            toReturn[id] = VCardBuilder(vcard.toString())
+        }
+        return toReturn
+    }
+
+    private class VCardData {
+        var displayName: String? = null
+        var name: List<String>? = null
+        val lines = mutableListOf<String>()
+    }
+
+    /** vCard 3.0 text value escaping (RFC 2426) */
+    private fun escape(value: String): String = value
+        .replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\r\n", "\\n").replace("\n", "\\n")
 
     /**
      * Get the last-modified timestamp for every contact in the database.

@@ -31,7 +31,7 @@ import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory.LoadablePlugin
 import org.kde.kdeconnect.ui.PluginSettingsFragment
 import org.kde.kdeconnect_tp.R
-import java.io.IOException
+import android.util.Log
 
 @LoadablePlugin
 class FindMyPhonePlugin : Plugin() {
@@ -61,6 +61,11 @@ class FindMyPhonePlugin : Plugin() {
         powerManager = ContextCompat.getSystemService(context, PowerManager::class.java)!!
         flashlightManager = FlashlightManager(context)
 
+        // The ringtone player is only created when the phone has to ring: a prepared MediaPlayer held for the
+        // whole connection costs memory and a media server session on a low-end phone
+    }
+
+    private fun createPlayer(): MediaPlayer? {
         val ringtoneString = preferences.getString(context.getString(R.string.findmyphone_preference_key_ringtone), "")
         val ringtone: Uri = if (ringtoneString.isNullOrEmpty()) {
             Settings.System.DEFAULT_RINGTONE_URI
@@ -68,18 +73,22 @@ class FindMyPhonePlugin : Plugin() {
             ringtoneString.toUri()
         }
 
-        mediaPlayer = MediaPlayer()
-        mediaPlayer?.apply {
-            setDataSource(context, ringtone)
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
-                .build()
-            @Suppress("DEPRECATION")
-            setWakeMode(context, PowerManager.SCREEN_DIM_WAKE_LOCK)
-            setAudioAttributes(audioAttributes)
-            isLooping = true
-            prepare()
+        return try {
+            MediaPlayer().apply {
+                setDataSource(context, ringtone)
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                    .build()
+                @Suppress("DEPRECATION")
+                setWakeMode(context, PowerManager.SCREEN_DIM_WAKE_LOCK)
+                setAudioAttributes(audioAttributes)
+                isLooping = true
+                prepare()
+            }
+        } catch (e: Exception) {
+            Log.e("FindMyPhone", "Could not prepare the ringtone", e)
+            null
         }
     }
 
@@ -156,7 +165,7 @@ class FindMyPhonePlugin : Plugin() {
     }
 
     fun startPlaying() {
-        val player = mediaPlayer ?: return
+        val player = mediaPlayer ?: createPlayer()?.also { mediaPlayer = it } ?: return
         if (!player.isPlaying) {
             previousVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0)
@@ -180,12 +189,9 @@ class FindMyPhonePlugin : Plugin() {
         }
         mediaPlayer?.let { player ->
             player.stop()
-            try {
-                player.prepare()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
+            player.release()
         }
+        mediaPlayer = null
     }
 
     fun stopFlashing() {

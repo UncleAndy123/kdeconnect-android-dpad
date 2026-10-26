@@ -8,27 +8,41 @@ package org.kde.kdeconnect.plugins
 import android.content.Context
 import android.util.Log
 import org.kde.kdeconnect.Device
+import java.util.concurrent.Callable
+import java.util.concurrent.FutureTask
 
 object PluginFactory {
     annotation class LoadablePlugin  //Annotate plugins with this so PluginFactory finds them
 
-    private var pluginInfo: Map<String, PluginInfo> = mapOf()
+    private var pluginInfoTask: FutureTask<Map<String, PluginInfo>> =
+        FutureTask(Callable<Map<String, PluginInfo>> { emptyMap() }).also { it.run() }
+
+    // Building the plugin info creates one instance of every plugin class (class loading and verification for all of
+    // them), which costs about a second of app start on a slow phone. It is built on a background thread instead,
+    // started first thing in Application.onCreate; anything that needs it waits for it (the device list doesn't).
+    private val pluginInfo: Map<String, PluginInfo>
+        get() = pluginInfoTask.get()
 
     fun initPluginInfo(context: Context) {
-        try {
-            pluginInfo = com.albertvaka.classindexksp.LoadablePlugin
-                .asSequence()
-                .map { it.java.getDeclaredConstructor().newInstance() as Plugin }
-                .onEach { it.setContext(context, null) }
-                .associate { Pair(it.pluginKey, PluginInfo(it)) }
-        } catch (e: Exception) {
-            throw RuntimeException(e)
-        }
-        Log.i("PluginFactory", "Loaded ${pluginInfo.size} plugins")
+        val appContext = context.applicationContext ?: context
+        pluginInfoTask = FutureTask(Callable<Map<String, PluginInfo>> {
+            try {
+                com.albertvaka.classindexksp.LoadablePlugin
+                    .asSequence()
+                    .map { it.java.getDeclaredConstructor().newInstance() as Plugin }
+                    .onEach { it.setContext(appContext, null) }
+                    .associate { Pair(it.pluginKey, PluginInfo(it)) }
+                    .also { Log.i("PluginFactory", "Loaded ${it.size} plugins") }
+            } catch (e: Exception) {
+                throw RuntimeException(e)
+            }
+        })
+        Thread(pluginInfoTask, "PluginInfo").start()
     }
 
+    // The keys come straight from the class index, without waiting for the plugin info
     val availablePlugins: Set<String>
-        get() = pluginInfo.keys
+        get() = com.albertvaka.classindexksp.LoadablePlugin.asSequence().map { Plugin.getPluginKey(it.java) }.toSet()
     val incomingCapabilities: Set<String>
         get() = pluginInfo.values.flatMap { plugin -> plugin.supportedPacketTypes }.toSet()
     val outgoingCapabilities: Set<String>

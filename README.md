@@ -56,6 +56,8 @@ Contacts no longer hold up everything else from the computer while they are read
 
 Notifications are built off the UI thread, and MMS photo thumbnails are decoded at thumbnail size instead of full resolution. Opening a 3,000-message conversation on the desktop takes 0.7 s for the newest 50 messages and 0.2 s for each 50 older.
 
+In progress (being measured): app start no longer creates every plugin on the UI thread; contacts built from one database query instead of one round trip per contact; new texts keep reaching the computer after Android kills the app in the background; Find my phone prepares its ringtone only when it rings; network discovery runs for a minute after each network change or Refresh instead of all the time.
+
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 
 ## Credits
