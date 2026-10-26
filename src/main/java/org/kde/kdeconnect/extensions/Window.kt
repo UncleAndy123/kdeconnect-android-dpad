@@ -7,13 +7,6 @@ package org.kde.kdeconnect.extensions
 
 import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.runtime.Composable
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,9 +43,4 @@ fun View.setupBottomMargin() {
         }
         insets
     }
-}
-
-@Composable
-fun safeDrawingBottomPadding(): PaddingValues {
-    return WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues()
 }

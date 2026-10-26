@@ -6,10 +6,7 @@
 
 package org.kde.kdeconnect.plugins.presenter
 
-import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
-import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
-import org.kde.kdeconnect.base.KdeActivity
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.hardware.Sensor
@@ -20,49 +17,26 @@ import android.os.Build
 import android.os.Bundle
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
-import androidx.activity.compose.setContent
-import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import android.widget.LinearLayout
 import androidx.media.VolumeProviderCompat
-import androidx.preference.PreferenceManager
+import com.google.android.material.button.MaterialButton
 import org.kde.kdeconnect.KdeConnect
-import org.kde.kdeconnect.ui.compose.KdeButton
-import org.kde.kdeconnect.ui.compose.KdeTheme
-import org.kde.kdeconnect.ui.compose.KdeTopAppBar
+import org.kde.kdeconnect.base.KdeActivity
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.views.ViewBuilders
+import org.kde.kdeconnect.ui.views.ViewBuilders.dp
 import org.kde.kdeconnect_tp.R
+import org.kde.kdeconnect_tp.databinding.ActivityPlainBinding
+import com.google.android.material.R as MR
 
 private const val VOLUME_UP = 1
 private const val VOLUME_DOWN = -1
@@ -108,7 +82,7 @@ class PresenterActivity : KdeActivity(), SensorEventListener, OnSharedPreference
         prefs.registerOnSharedPreferenceChangeListener(this)
         applyPrefs()
 
-        setContent { PresenterScreen(device.name) }
+        buildUi(device.name)
         createMediaSession()
     }
 
@@ -181,150 +155,125 @@ class PresenterActivity : KdeActivity(), SensorEventListener, OnSharedPreference
         prefsApplied = true
     }
 
-    @Preview
-    @Composable
-    private fun PresenterScreenPreview() {
-        PresenterScreen("TestDevice")
+    private lateinit var binding: ActivityPlainBinding
+    private var keyPointerActive = false
+
+    override fun onResume() {
+        super.onResume()
+        // Keypad: LEFT "Options" = Fullscreen / Exit presentation (the toolbar's menu on touch)
+        KeypadSoftkeys.bind(this, KeypadSoftkeys.optionsKey(this, listOf(
+            SoftkeyOption(getString(R.string.presenter_fullscreen)) { plugin.sendFullscreen() },
+            SoftkeyOption(getString(R.string.presenter_exit)) { plugin.sendEsc() },
+        )), null)
     }
 
-    @Composable
-    private fun PresenterScreen(deviceName: String) {
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(Menu.NONE, MENU_FULLSCREEN, Menu.NONE, R.string.presenter_fullscreen)
+        menu.add(Menu.NONE, MENU_EXIT, Menu.NONE, R.string.presenter_exit)
+        return true
+    }
 
-        val sensorManager = LocalContext.current.getSystemService(SENSOR_SERVICE) as? SensorManager
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_FULLSCREEN -> { plugin.sendFullscreen(); true }
+        MENU_EXIT -> { plugin.sendEsc(); true }
+        else -> super.onOptionsItemSelected(item)
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
+    }
+
+    private fun button(tonal: Boolean = false): MaterialButton =
+        MaterialButton(this, null, if (tonal) MR.attr.materialButtonTonalStyle else MR.attr.materialButtonStyle).apply {
+            cornerRadius = dp(context, 24)
+            insetTop = 0
+            insetBottom = 0
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            iconPadding = 0
+            maxLines = 1
+        }
+
+    /** Volume-keys tip, big Previous / Next buttons and (with a gyroscope) the pointer button */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun buildUi(deviceName: String) {
+        binding = ActivityPlainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        setSupportActionBar(binding.toolbarLayout.toolbar)
+        supportActionBar?.apply {
+            setDisplayHomeAsUpEnabled(true)
+            setDisplayShowHomeEnabled(true)
+            title = getString(R.string.pref_plugin_presenter)
+            subtitle = deviceName
+        }
+        val gap = dp(this, 20)
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 16))
+        }
+        if (volumeKeys) {
+            column.addView(ViewBuilders.text(this, getString(
+                if (offScreenControlsSupported) R.string.presenter_volume_keys_tip else R.string.presenter_volume_keys_foreground_tip
+            ), MR.attr.textAppearanceBodyLarge, MR.attr.colorOnSurface).apply {
+                setPadding(dp(context, 16), 0, dp(context, 16), dp(context, 8))
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = gap
+            })
+        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val previous = button().apply {
+            setIconResource(R.drawable.ic_arrow_back_black_24dp)
+            contentDescription = getString(R.string.mpris_previous)
+            setOnClickListener { plugin.sendPrevious(); it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
+        }
+        val next = button().apply {
+            setIconResource(R.drawable.ic_arrow_forward_black_24dp)
+            contentDescription = getString(R.string.mpris_next)
+            setOnClickListener { plugin.sendNext(); it.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
+        }
+        row.addView(previous, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply { marginEnd = gap / 2 })
+        row.addView(next, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply { marginStart = gap / 2 })
+        column.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 3f))
+
+        val sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         // The pointer needs a gyroscope; many keypad phones don't have one
         val gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        var keyPointerActive by remember { mutableStateOf(false) }
-        val haptics = LocalHapticFeedback.current
-
-        KdeTheme(this) {
-            Scaffold(
-                modifier = Modifier.safeDrawingPadding(),
-                topBar = { PresenterAppBar(deviceName) }
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(it)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    if (volumeKeys) Text(
-                        text = stringResource(if (offScreenControlsSupported) R.string.presenter_volume_keys_tip else R.string.presenter_volume_keys_foreground_tip),
-                        modifier = Modifier
-                            .padding(bottom = 8.dp)
-                            .padding(horizontal = 16.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(3f),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        KdeButton(
-                            onClick = {
-                                plugin.sendPrevious()
-                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            contentDescription = getString(R.string.mpris_previous),
-                            icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        )
-                        KdeButton(
-                            onClick = {
-                                plugin.sendNext()
-                                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                            },
-                            contentDescription = getString(R.string.mpris_next),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            icon = Icons.AutoMirrored.Filled.ArrowForward,
-                        )
+        if (sensorManager != null && gyroscope != null) {
+            val pointer = button(tonal = true).apply {
+                text = getString(R.string.presenter_pointer)
+                // D-pad OK toggles the pointer; touch holds the button (below)
+                setOnClickListener {
+                    keyPointerActive = !keyPointerActive
+                    if (keyPointerActive) {
+                        sensorManager.registerListener(this@PresenterActivity, gyroscope, SensorManager.SENSOR_DELAY_GAME)
+                    } else {
+                        sensorManager.unregisterListener(this@PresenterActivity)
+                        plugin.stopPointer()
                     }
-                    if (sensorManager != null && gyroscope != null) KdeButton(
-                        // Touch holds the button (below); D-pad OK toggles the pointer instead
-                        onClick = {
-                            keyPointerActive = !keyPointerActive
-                            if (keyPointerActive) {
-                                sensorManager.registerListener(this@PresenterActivity, gyroscope, SensorManager.SENSOR_DELAY_GAME)
-                            } else {
-                                sensorManager.unregisterListener(this@PresenterActivity)
-                                plugin.stopPointer()
-                            }
-                        },
-                        colors = ButtonDefaults.filledTonalButtonColors(),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f)
-                            .pointerInteropFilter { event ->
-                                when (event.action) {
-                                    MotionEvent.ACTION_DOWN -> {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        sensorManager.registerListener(
-                                            this@PresenterActivity,
-                                            sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                                            SensorManager.SENSOR_DELAY_GAME
-                                        )
-                                    }
-
-                                    MotionEvent.ACTION_UP -> {
-                                        haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
-                                        sensorManager.unregisterListener(this@PresenterActivity)
-                                        plugin.stopPointer()
-                                        false
-                                    }
-                                    else -> false
-                                }
-                            },
-                        text = stringResource(R.string.presenter_pointer),
-                    )
+                }
+                setOnTouchListener { v, event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            sensorManager.registerListener(this@PresenterActivity, gyroscope, SensorManager.SENSOR_DELAY_GAME)
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            sensorManager.unregisterListener(this@PresenterActivity)
+                            plugin.stopPointer()
+                        }
+                    }
+                    true
                 }
             }
+            column.addView(pointer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = gap })
         }
-    }
-
-    @Composable
-    private fun PresenterAppBar(subTitle: String) {
-
-        var menuExpanded by remember { mutableStateOf(false) }
-
-        KdeTopAppBar(
-            softkeyLeft = KeypadSoftkeys.optionsKey(this@PresenterActivity, listOf(
-                SoftkeyOption(stringResource(R.string.presenter_fullscreen)) { plugin.sendFullscreen() },
-                SoftkeyOption(stringResource(R.string.presenter_exit)) { plugin.sendEsc() },
-            )),
-            title = stringResource(R.string.pref_plugin_presenter),
-            subTitle = subTitle,
-            navIconOnClick = { onBackPressedDispatcher.onBackPressed() },
-            navIconDescription = getString(androidx.appcompat.R.string.abc_action_bar_up_description),
-            actions = {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.keypadIconButtonRing()) {
-                    Icon(Icons.Default.MoreVert, stringResource(R.string.extra_options))
-                }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(
-                        onClick = {
-                            menuExpanded = false
-                            plugin.sendFullscreen()
-                        },
-                        text = { Text(stringResource(R.string.presenter_fullscreen)) },
-                    )
-                    DropdownMenuItem(
-                        onClick = {
-                            menuExpanded = false
-                            plugin.sendEsc()
-                        },
-                        text = { Text(stringResource(R.string.presenter_exit)) },
-                    )
-                }
-            }
-        )
+        binding.content.addView(column)
+        if (KeypadSoftkeys.isKeypadDevice(this)) previous.requestFocus()
     }
 
     companion object {
         const val EXTRA_DEVICE_ID = "deviceId"
+        private const val MENU_FULLSCREEN = 1
+        private const val MENU_EXIT = 2
     }
 }

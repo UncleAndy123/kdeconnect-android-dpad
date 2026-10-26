@@ -11,9 +11,8 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import android.os.Handler
+import android.os.Looper
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -32,7 +31,11 @@ class RunCommandPlugin : Plugin() {
     val commandList = ArrayList<CommandInfo>()
     private val callbacks = ArrayList<CommandsChangedCallback>()
     val commandItems = ArrayList<CommandEntry>()
-    val output = SnapshotStateList<RunCommandOutput>()
+    /** Command output lines; written on the link thread, read through [outputSnapshot]. */
+    private val output = ArrayList<RunCommandOutput>()
+    private val outputListeners = ArrayList<() -> Unit>()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val notifyOutput = Runnable { outputListeners.toList().forEach { it() } }
 
     // Ids of the commands that are currently running on the remote device. Currently only
     // used to show/hide the stop button (when this is empty).
@@ -55,11 +58,27 @@ class RunCommandPlugin : Plugin() {
         fun update()
     }
 
-    val commandRunning: MutableState<Boolean> = mutableStateOf(false)
+    @Volatile
+    var commandRunning = false
+        private set
+
+    fun outputSnapshot(): List<RunCommandOutput> = synchronized(output) { output.toList() }
+
+    /** [listener] runs on the main thread after the output or the running state changed (coalesced). */
+    fun addOutputListener(listener: () -> Unit) = outputListeners.add(listener)
+    fun removeOutputListener(listener: () -> Unit) = outputListeners.remove(listener)
+
+    private fun outputChanged() {
+        mainHandler.removeCallbacks(notifyOutput)
+        mainHandler.post(notifyOutput)
+    }
 
     fun clearOutput() {
-        output.clear()
-        commandLineIndexById.clear()
+        synchronized(output) {
+            output.clear()
+            commandLineIndexById.clear()
+        }
+        outputChanged()
     }
 
     override val displayName: String
@@ -137,24 +156,24 @@ class RunCommandPlugin : Plugin() {
             Log.i("RunCommandPlugin", "commandStarted $id")
 
             runningProcesses.add(id)
-            commandRunning.value = true
+            commandRunning = true
 
-            output.add(RunCommandOutput(RunCommandStatus.COMMAND_RUNNING, "$ $command", id))
-            commandLineIndexById[id] = output.size - 1
+            synchronized(output) {
+                output.add(RunCommandOutput(RunCommandStatus.COMMAND_RUNNING, "$ $command", id))
+                commandLineIndexById[id] = output.size - 1
+            }
+            outputChanged()
 
             return true
         } else if (np.has("commandOutput")) {
             val stdOut = np.getStringList("stdout") ?: emptyList()
             val stdErr = np.getStringList("stderr") ?: emptyList()
             val id = np.getInt("id")
-            for (line in stdOut) {
-                Log.d("STDOUT", "Line:$line")
-                output.add(RunCommandOutput(RunCommandStatus.STDOUT, line, id))
+            synchronized(output) {
+                for (line in stdOut) output.add(RunCommandOutput(RunCommandStatus.STDOUT, line, id))
+                for (line in stdErr) output.add(RunCommandOutput(RunCommandStatus.STDERR, line, id))
             }
-            for (line in stdErr) {
-                Log.d("STDERR", "Line:$line")
-                output.add(RunCommandOutput(RunCommandStatus.STDERR, line, id))
-            }
+            outputChanged()
 
             return true
         } else if (np.has("commandFinished")) {
@@ -163,17 +182,17 @@ class RunCommandPlugin : Plugin() {
 
             Log.i("RunCommandPlugin", "commandFinished $id")
             runningProcesses.remove(id)
-            commandRunning.value = runningProcesses.isNotEmpty()
+            commandRunning = runningProcesses.isNotEmpty()
 
-            val index = commandLineIndexById.remove(id)
-            if (index != null && index < output.size) {
-                val commandLine = output[index]
-                // Build a brand-new instance instead of mutating commandLine in place: SnapshotStateList
-                // doesn't notify Compose when calling output.set() with the same (mutated) reference.
-                output[index] = commandLine.copy(
-                    commandStatus = if (success) RunCommandStatus.COMMAND_SUCCESSFUL else RunCommandStatus.COMMAND_FAILED
-                )
+            synchronized(output) {
+                val index = commandLineIndexById.remove(id)
+                if (index != null && index < output.size) {
+                    output[index] = output[index].copy(
+                        commandStatus = if (success) RunCommandStatus.COMMAND_SUCCESSFUL else RunCommandStatus.COMMAND_FAILED
+                    )
+                }
             }
+            outputChanged()
 
             return true
         }

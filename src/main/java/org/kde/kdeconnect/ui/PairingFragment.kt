@@ -23,31 +23,37 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.compose.runtime.getValue
+import android.view.Gravity
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.viewModels
+import androidx.core.widget.ImageViewCompat
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import org.kde.kdeconnect.BackgroundService.Companion.ForceRefreshConnections
 import org.kde.kdeconnect.BackgroundService.Companion.instance
 import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.base.BaseFragment
 import org.kde.kdeconnect.helpers.TrustedNetworkHelper.Companion.isTrustedNetwork
-import org.kde.kdeconnect.ui.compose.KdeTheme
-import org.kde.kdeconnect.ui.compose.screen.pairing.PairingScreen
+import org.kde.kdeconnect.ui.compose.model.device.DeviceUiModel
+import org.kde.kdeconnect.ui.compose.screen.pairing.PairingUiState
 import org.kde.kdeconnect.ui.compose.screen.pairing.PairingViewModel
+import org.kde.kdeconnect.ui.views.ViewBuilders
 import org.kde.kdeconnect_tp.R
-import org.kde.kdeconnect_tp.databinding.DevicesListBinding
+import org.kde.kdeconnect_tp.databinding.PairingListBinding
 
 /**
  * The view that the user will see when there are no devices paired, or when you choose "add a new device" from the sidebar.
  */
-class PairingFragment : BaseFragment<DevicesListBinding>() {
+class PairingFragment : BaseFragment<PairingListBinding>() {
 
     private val viewModel by viewModels<PairingViewModel>()
 
@@ -87,14 +93,34 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): DevicesListBinding = DevicesListBinding.inflate(inflater, container, false)
+    ): PairingListBinding = PairingListBinding.inflate(inflater, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         mActivity?.addMenuProvider(menuProvider, viewLifecycleOwner, Lifecycle.State.RESUMED)
 
-        createComposeView()
+        binding.refresh.setOnRefreshListener { viewModel.onRefresh() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.pairingUiState.collect { render(it) }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Keypad soft keys (vela-dpad model): LEFT = Options (this screen's menu plus the drawer's Settings /
+        // About, since the toolbar is hidden), RIGHT = Refresh
+        val main = mActivity as? MainActivity ?: return
+        KeypadSoftkeys.bind(
+            main,
+            KeypadSoftkeys.menuOptionsKey(main, listOf(
+                SoftkeyOption(getString(R.string.settings)) { main.openSettings() },
+                SoftkeyOption(getString(R.string.about)) { main.openAbout() },
+            ), exclude = setOf(R.id.menu_refresh)),
+            SoftKey(getString(R.string.refresh)) { viewModel.onRefresh() },
+        )
     }
 
     fun hasRequestedPermission(permission: String): Boolean {
@@ -112,65 +138,151 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             }
     }
 
-    private fun createComposeView() {
-        binding.composeView.apply {
-            setContent {
-                KdeTheme(context) {
-                    val state by viewModel.pairingUiState.collectAsStateWithLifecycle()
-                    // Keypad soft keys (vela-dpad model): LEFT = Options (this screen's menu plus the
-                    // drawer's Settings / About, since the toolbar is hidden), RIGHT = Refresh
-                    val main = mActivity as? MainActivity
-                    KeypadSoftkeys.Keys(
-                        left = main?.let { a ->
-                            KeypadSoftkeys.menuOptionsKey(a, listOf(
-                                SoftkeyOption(getString(R.string.settings)) { a.openSettings() },
-                                SoftkeyOption(getString(R.string.about)) { a.openAbout() },
-                            ), exclude = setOf(R.id.menu_refresh))
-                        },
-                        right = SoftKey(getString(R.string.refresh)) { viewModel.onRefresh() },
-                    )
+    private var renderedOnce = false
 
-                    PairingScreen(
-                        uiState = state,
-                        onClick = { deviceId ->
-                            viewModel.getDeviceById(deviceId)?.let { device ->
-                                deviceClicked(device)
-                            }
-                        },
-                        onWifiSettingsClick = {
-                            startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
-                        },
-                        onNotificationSettingsClick = {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val hasRequestedBefore = hasRequestedPermission(Manifest.permission.POST_NOTIFICATIONS)
-                                val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.POST_NOTIFICATIONS)
-                                if (hasRequestedBefore && !shouldShowRationale) {
-                                    openAppDetailsSettings()
-                                } else {
-                                    markPermissionRequested(Manifest.permission.POST_NOTIFICATIONS)
-                                    notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                            } else {
-                                openAppDetailsSettings()
-                            }
-                        },
-                        onLocalNetworkPermissionClick = @RequiresApi(Build.VERSION_CODES.CINNAMON_BUN) {
-                            val hasRequestedBefore = hasRequestedPermission(Manifest.permission.ACCESS_LOCAL_NETWORK)
-                            val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.ACCESS_LOCAL_NETWORK)
-                            if (hasRequestedBefore && !shouldShowRationale) {
-                                openAppDetailsSettings()
-                            } else {
-                                markPermissionRequested(Manifest.permission.ACCESS_LOCAL_NETWORK)
-                                localNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
-                            }
-                        },
-                        onRefresh = { viewModel.onRefresh() }
-                    )
-                }
+    /** Builds the list from the state: explanations, then connected / available / remembered devices. */
+    private fun render(state: PairingUiState) {
+        if (!hasBinding) return
+        val list = binding.list
+        val focusedId = mActivity?.currentFocus?.tag as? String
+        binding.refresh.isRefreshing = state.isRefreshing
+        list.removeAllViews()
+
+        addExplanations(list, state)
+
+        val all = state.connected + state.available + state.remembered
+        list.addView(sectionHeader(getString(R.string.category_connected_devices)))
+        if (state.connected.isEmpty()) {
+            list.addView(TextView(requireContext()).apply {
+                text = getString(R.string.device_list_empty)
+                textAppearance(this, com.google.android.material.R.attr.textAppearanceBodySmall)
+                gravity = Gravity.CENTER
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+            })
+        } else {
+            list.addView(spacer(4))
+            state.connected.forEach { list.addView(deviceCard(it)) }
+        }
+        if (state.available.isNotEmpty()) {
+            list.addView(sectionHeader(getString(R.string.category_not_paired_devices)))
+            list.addView(spacer(4))
+            state.available.forEach { list.addView(deviceCard(it)) }
+        }
+        if (state.remembered.isNotEmpty()) {
+            list.addView(sectionHeader(getString(R.string.category_remembered_devices)))
+            list.addView(spacer(4))
+            state.remembered.forEach { list.addView(deviceCard(it)) }
+        }
+
+        // Keep the D-pad focus on the same device across updates; keypad phones open with the first device focused
+        val target = focusedId?.let { list.findViewWithTag<View>(it) }
+            ?: if (!renderedOnce || mActivity?.currentFocus == null) all.firstOrNull()?.let { list.findViewWithTag<View>(it.id) } else null
+        if (target != null && KeypadSoftkeys.isKeypadDevice(requireContext())) target.requestFocus()
+        renderedOnce = true
+    }
+
+    private fun addExplanations(list: LinearLayout, state: PairingUiState) {
+        if (!state.hasLocalNetworkPermission) {
+            list.addView(explanationRow(getString(R.string.pairing_missing_local_network_permission), R.drawable.ic_warning) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) onLocalNetworkPermissionClick()
+            })
+        }
+        if (!state.hasNotificationsPermission) {
+            list.addView(explanationRow(getString(R.string.no_notifications), R.drawable.ic_warning) { onNotificationSettingsClick() })
+        }
+        if (!state.hasLocalNetworkPermission || !state.hasNotificationsPermission) return
+
+        if (state.hasDuplicateNames) {
+            list.addView(explanationRow(getString(R.string.pairing_duplicate_names), R.drawable.ic_warning))
+        }
+        val someDevicesReachable = state.available.isNotEmpty() || state.connected.isNotEmpty()
+        if (someDevicesReachable || state.isWifiAvailable) {
+            if (state.isTrustedNetwork) {
+                list.addView(explanationRow(getString(R.string.pairing_description)))
+            } else {
+                list.addView(explanationRow(getString(R.string.on_non_trusted_message), R.drawable.ic_warning))
             }
+        } else {
+            list.addView(explanationRow(getString(R.string.no_wifi), R.drawable.ic_wifi) {
+                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+            })
         }
     }
 
+    private fun explanationRow(text: String, icon: Int? = null, onClick: (() -> Unit)? = null): View =
+        LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            if (icon != null) {
+                addView(ImageView(context).apply {
+                    setImageResource(icon)
+                    ImageViewCompat.setImageTintList(this, android.content.res.ColorStateList.valueOf(color(com.google.android.material.R.attr.colorOnSurfaceVariant)))
+                }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
+            }
+            addView(TextView(context).apply {
+                this.text = text
+                textAppearance(this, com.google.android.material.R.attr.textAppearanceBodyMedium)
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            if (onClick != null) {
+                isFocusable = true
+                isClickable = true
+                setBackgroundResource(attrRes(android.R.attr.selectableItemBackground))
+                setOnClickListener { onClick() }
+            }
+        }
+
+    private fun sectionHeader(title: String): View = ViewBuilders.sectionHeader(requireContext(), title)
+
+    private fun spacer(heightDp: Int): View = View(requireContext()).apply {
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(heightDp))
+    }
+
+    private fun deviceCard(device: DeviceUiModel): View =
+        ViewBuilders.deviceCard(requireContext(), device.id, device.icon, device.name,
+            if (device.summaryRes > 0) getString(device.summaryRes) else null
+        ) { viewModel.getDeviceById(device.id)?.let(::deviceClicked) }.apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+        }
+
+    private fun onNotificationSettingsClick() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasRequestedBefore = hasRequestedPermission(Manifest.permission.POST_NOTIFICATIONS)
+            val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.POST_NOTIFICATIONS)
+            if (hasRequestedBefore && !shouldShowRationale) {
+                openAppDetailsSettings()
+            } else {
+                markPermissionRequested(Manifest.permission.POST_NOTIFICATIONS)
+                notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        } else {
+            openAppDetailsSettings()
+        }
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.CINNAMON_BUN)
+    private fun onLocalNetworkPermissionClick() {
+        val hasRequestedBefore = hasRequestedPermission(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.ACCESS_LOCAL_NETWORK)
+        if (hasRequestedBefore && !shouldShowRationale) {
+            openAppDetailsSettings()
+        } else {
+            markPermissionRequested(Manifest.permission.ACCESS_LOCAL_NETWORK)
+            localNetworkPermissionLauncher.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+        }
+    }
+
+    private fun dp(v: Int): Int = ViewBuilders.dp(requireContext(), v)
+
+    private fun color(attr: Int): Int = ViewBuilders.color(requireContext(), attr)
+
+    private fun attrRes(attr: Int): Int = ViewBuilders.attrRes(requireContext(), attr)
+
+    private fun textAppearance(view: TextView, attr: Int) {
+        ViewBuilders.styled(view, attr)
+    }
 
     private val notificationsPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -259,6 +371,12 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             hasNotificationsPermission = hasNotificationsPermission,
             hasLocalNetworkPermission = hasLocalNetworkPermission,
         )
+    }
+
+    override fun onDestroyView() {
+        mActivity?.let { KeypadSoftkeys.clear(it) }
+        renderedOnce = false
+        super.onDestroyView()
     }
 
     override fun onStart() {

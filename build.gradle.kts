@@ -23,7 +23,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.ksp)
     alias(libs.plugins.dependencyLicenseReport)
-    alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -55,7 +54,6 @@ android {
     }
     buildFeatures {
         viewBinding = true
-        compose = true
         buildConfig = true
     }
 
@@ -298,14 +296,8 @@ dependencies {
     // See `FixPosixFilePermissionClassVisitorFactory` for more details.
     coreLibraryDesugaring(libs.android.desugarJdkLibsNio)
 
-    // Compose
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.constraintlayout.compose)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
 
     implementation(libs.androidx.media)
     implementation(libs.androidx.appcompat)

@@ -6,9 +6,6 @@ package org.kde.kdeconnect.ui.keypad
 
 import com.theonionsarewatching.yapchik.SoftkeyProfileChooser
 import com.theonionsarewatching.yapchik.SoftkeyMode
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.LaunchedEffect
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
@@ -38,14 +35,10 @@ import com.google.android.material.color.MaterialColors
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
-import androidx.activity.compose.LocalActivity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.widget.PopupMenu
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.mutableStateOf
 import com.theonionsarewatching.yapchik.Softkeys
 import com.theonionsarewatching.yapchik.Yapchik
 import org.kde.kdeconnect_tp.R
@@ -101,7 +94,6 @@ class SoftKey(val label: String, val onPress: () -> Unit)
  *  - Gated on the keypad detector, so touch phones are untouched.
  */
 object KeypadSoftkeys {
-    private val activeState = mutableStateOf(false)
 
     /** The engine resolved on (keypad device and not switched off in Settings). */
     val isActive: Boolean get() = Yapchik.isInstalled && Yapchik.isActive
@@ -150,8 +142,6 @@ object KeypadSoftkeys {
     fun init(app: Application) {
         Yapchik.install(app)
         Yapchik.autoDetector = ::isKeypadDevice
-        activeState.value = Yapchik.isActive
-        Yapchik.addStateListener { active -> activeState.value = active }
         // Reserve the bar's height by padding the content instead of covering it
         Yapchik.autoInsetContent = true
         // No nav-bar guard: our edge-to-edge UI has no vendor strip to clear (it made the bar double-tall)
@@ -398,31 +388,5 @@ object KeypadSoftkeys {
             first?.requestFocus()
         }
         dialog.show()
-    }
-
-    /** True while soft keys are on (keypad device, not switched off). */
-    @Composable
-    fun rememberActive(): Boolean = activeState.value
-
-    /**
-     * Bind a Compose screen's soft keys (vela's MapSoftkeys): re-binds when the labels change,
-     * actions are read live, cleared when the screen leaves composition. Returns true when the
-     * keys are showing, so the screen drops the on-screen controls they replace.
-     */
-    @Composable
-    fun Keys(left: SoftKey?, right: SoftKey?): Boolean {
-        val activity = LocalActivity.current ?: return false
-        val active = activeState.value
-        val leftNow by rememberUpdatedState(left)
-        val rightNow by rememberUpdatedState(right)
-        LaunchedEffect(activity, left?.label, right?.label, active) {
-            bind(
-                activity,
-                leftNow?.let { k -> SoftKey(k.label) { leftNow?.onPress?.invoke() } },
-                rightNow?.let { k -> SoftKey(k.label) { rightNow?.onPress?.invoke() } },
-            )
-        }
-        DisposableEffect(activity) { onDispose { clear(activity) } }
-        return active && (left != null || right != null)
     }
 }

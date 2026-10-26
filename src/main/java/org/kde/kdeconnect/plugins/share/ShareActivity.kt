@@ -15,9 +15,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.ActionBar
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import android.view.View
+import android.widget.LinearLayout
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import org.kde.kdeconnect.BackgroundService
@@ -25,10 +24,9 @@ import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.base.BaseActivity
 import org.kde.kdeconnect.helpers.IntentHelper
-import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.extensions.device.toUiModel
 import org.kde.kdeconnect.ui.compose.model.device.DeviceUiModel
-import org.kde.kdeconnect.ui.compose.screen.share.ShareScreen
+import org.kde.kdeconnect.ui.views.ViewBuilders
 import org.kde.kdeconnect_tp.R
 import org.kde.kdeconnect_tp.databinding.ActivityShareBinding
 
@@ -38,9 +36,14 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
 
     override val isScrollable: Boolean = true
 
-    private var isRefreshing by mutableStateOf(value = false)
-    private var uiDevices by mutableStateOf<List<DeviceUiModel>>(value = emptyList())
-    private var intentHasUrl by mutableStateOf(value = false)
+    private var isRefreshing = false
+        set(value) {
+            field = value
+            binding.devicesListLayout.refresh.isRefreshing = value
+        }
+    private var uiDevices: List<DeviceUiModel> = emptyList()
+    private var intentHasUrl = false
+    private var renderedOnce = false
     private var shareStarted = false
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -69,7 +72,7 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
 
         BackgroundService.ForceRefreshConnections(context = this)
 
-        binding.devicesListLayout.composeView.postDelayed({
+        binding.devicesListLayout.list.postDelayed({
             isRefreshing = false
         }, 1500)
     }
@@ -86,6 +89,32 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
         this.uiDevices = devices
             .filter { device -> device.isPaired && (intentHasUrl || device.isReachable) }
             .map { it.toUiModel() }
+        render()
+    }
+
+    /** "Share to" and a card per device; the first device is focused on open (keypad phones) */
+    private fun render() {
+        val list = binding.devicesListLayout.list
+        val focusedId = currentFocus?.tag as? String
+        list.removeAllViews()
+        list.setPadding(ViewBuilders.dp(this, 8), ViewBuilders.dp(this, 4), ViewBuilders.dp(this, 8), list.paddingBottom)
+        val title = if (intentHasUrl) {
+            "${getString(R.string.unreachable_device_url_share_text)} ${getString(R.string.share_to)}"
+        } else {
+            getString(R.string.share_to)
+        }
+        list.addView(ViewBuilders.sectionHeader(this, title))
+        uiDevices.forEach { device ->
+            list.addView(ViewBuilders.deviceCard(this, device.id, device.icon, device.name,
+                if (!device.isReachable) getString(R.string.runcommand_notreachable) else null
+            ) { shareToDeviceAndFinish(deviceId = device.id, intent = intent) }, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = ViewBuilders.dp(this@ShareActivity, 8) })
+        }
+        val target = focusedId?.let { list.findViewWithTag<View>(it) }
+            ?: if (!renderedOnce || currentFocus == null) uiDevices.firstOrNull()?.let { list.findViewWithTag<View>(it.id) } else null
+        if (target != null && KeypadSoftkeys.isKeypadDevice(this)) target.requestFocus()
+        renderedOnce = true
     }
 
     private fun shareToDeviceAndFinish(
@@ -140,22 +169,7 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
                 ActionBar.DISPLAY_SHOW_HOME or ActionBar.DISPLAY_SHOW_TITLE or ActionBar.DISPLAY_SHOW_CUSTOM
         }
 
-        binding.devicesListLayout.composeView.setContent {
-            KdeTheme(this) {
-                ShareScreen(
-                    devices = uiDevices,
-                    intentHasUrl = intentHasUrl,
-                    isRefreshing = isRefreshing,
-                    onDeviceClick = { deviceId ->
-                        shareToDeviceAndFinish(
-                            deviceId = deviceId,
-                            intent = intent
-                        )
-                    },
-                    onRefresh = { refreshDevicesAction() }
-                )
-            }
-        }
+        binding.devicesListLayout.refresh.setOnRefreshListener { refreshDevicesAction() }
     }
 
     override fun onStart() {

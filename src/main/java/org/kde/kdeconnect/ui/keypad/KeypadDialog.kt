@@ -4,138 +4,122 @@
 
 package org.kde.kdeconnect.ui.keypad
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProvideTextStyle
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import kotlinx.coroutines.delay
+import android.app.Activity
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.Window
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatDialog
+import org.kde.kdeconnect.ui.views.ViewBuilders
+import org.kde.kdeconnect.ui.views.ViewBuilders.dp
+import com.google.android.material.R as MR
 
 /** A dialog button: [filled] is the higher-emphasis (confirm) action. */
 class KeypadDialogButton(val text: String, val onClick: () -> Unit, val filled: Boolean = false)
 
 /**
- * D-pad-first dialog, ported from vela-dpad's VelaDialog. A Material AlertDialog opens with its
- * window focused but no button Compose-focused, and nothing can pre-place that focus; a raw Dialog
- * with explicitly `.focusable()` buttons can. So this lands already focused (on [autoFocusIndex],
- * or on nothing when the body has its own focus target such as a text field), OK activates, arrows
- * move, BACK dismisses. The soft-key bar hides while it is up (KeypadSoftkeys watches window
- * focus). Styled like Material's AlertDialog; tighter on feature-phone screens.
+ * D-pad-first dialog, ported from vela-dpad's VelaDialog: lands already focused (on [autoFocusIndex], or
+ * on the body's own focus target such as a text field when that is null), OK activates, arrows move, BACK
+ * dismisses. The soft-key bar hides while it is up (KeypadSoftkeys watches window focus). Styled like
+ * Material's AlertDialog (28dp corners, surfaceContainerHigh); tighter on feature-phone screens. The
+ * dialog is its own window, so its buttons carry the orange ring themselves.
  */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun KeypadDialog(
-    onDismissRequest: () -> Unit,
-    title: String,
-    buttons: List<KeypadDialogButton>,
-    autoFocusIndex: Int? = 0,
-    text: @Composable () -> Unit,
-) {
-    Dialog(onDismissRequest = onDismissRequest) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-        ) {
-            // Cap at 90% and scroll the body so the buttons never fall off a small screen.
-            // AdaptiveDensity.applied is the only correct small-screen test (it inflates dp).
-            val compact = AdaptiveDensity.applied
-            Column(
-                Modifier
-                    .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.9f).dp)
-                    .padding(if (compact) 16.dp else 24.dp),
-            ) {
-                Text(
-                    title,
-                    style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(if (compact) 8.dp else 16.dp))
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                    ProvideTextStyle(MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                        text()
-                    }
-                }
-                Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
-                // FlowRow: buttons that don't fit on one line wrap instead of breaking mid-word
-                FlowRow(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    buttons.forEachIndexed { i, button ->
-                        DialogButton(button.text, button.onClick, autoFocus = i == autoFocusIndex, filled = button.filled)
-                    }
-                }
-            }
-        }
-    }
-}
+object KeypadDialog {
+    private const val RING_ARGB = 0xFFFF6D00.toInt()
 
-/** A directly-`.focusable()` text button: the only thing requestFocus lands on inside a raw Dialog
- *  (a Material TextButton's nested focusable doesn't). OK and touch tap both fire [onClick]. */
-@Composable
-private fun DialogButton(text: String, onClick: () -> Unit, autoFocus: Boolean, filled: Boolean) {
-    val requester = remember { FocusRequester() }
-    val keypad = rememberKeypadDevice()
-    if (autoFocus) {
-        LaunchedEffect(keypad) {
-            if (keypad) repeat(30) {
-                if (runCatching { requester.requestFocus() }.isSuccess) return@LaunchedEffect
-                delay(50)
+    /** [onClick] of a button runs after the dialog closes unless [keepOpen] says otherwise (e.g. a bad input). */
+    fun show(
+        activity: Activity,
+        title: String,
+        body: View,
+        buttons: List<KeypadDialogButton>,
+        autoFocusIndex: Int? = 0,
+        onDismiss: () -> Unit = {},
+        keepOpen: (KeypadDialogButton) -> Boolean = { false },
+    ): AppCompatDialog {
+        val ctx = activity
+        val compact = AdaptiveDensity.applied
+        val dialog = AppCompatDialog(ctx)
+        dialog.supportRequestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val column = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = dp(ctx, if (compact) 16 else 24)
+            setPadding(pad, pad, pad, pad)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 28).toFloat()
+                setColor(ViewBuilders.color(ctx, MR.attr.colorSurfaceContainerHigh))
             }
         }
-    }
-    // The ring, the pill fill and the padding share one shape so the ring hugs the button
-    val shape = if (filled) CircleShape else RoundedCornerShape(20.dp)
-    Text(
-        text,
-        color = if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-        style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier
-            .focusRequester(requester)
-            .keypadFocusRing(shape)
-            .then(if (filled) Modifier.background(MaterialTheme.colorScheme.primary, shape) else Modifier)
-            .onKeyEvent { ev ->
-                if ((ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter) && ev.type == KeyEventType.KeyUp) {
-                    onClick(); true
-                } else {
-                    false
-                }
+        column.addView(ViewBuilders.text(ctx, title,
+            if (compact) MR.attr.textAppearanceTitleLarge else MR.attr.textAppearanceHeadlineSmall, MR.attr.colorOnSurface))
+        // The body scrolls so the buttons never fall off a small screen
+        val scroll = ScrollView(ctx).apply { addView(body) }
+        if (body is TextView) ViewBuilders.styled(body, MR.attr.textAppearanceBodyMedium)
+        column.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply {
+            topMargin = dp(ctx, if (compact) 8 else 16)
+        })
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        }
+        val views = buttons.map { button ->
+            dialogButton(ctx, button) {
+                if (!keepOpen(button)) dialog.dismiss()
+                button.onClick()
+            }.also { v ->
+                row.addView(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = dp(ctx, 8)
+                })
             }
-            .focusable()
-            .pointerInput(Unit) { detectTapGestures { onClick() } }
-            .padding(horizontal = if (filled) 24.dp else 12.dp, vertical = 10.dp),
-    )
+        }
+        column.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(ctx, if (compact) 12 else 24)
+        })
+        dialog.setContentView(column)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnDismissListener { onDismiss() }
+        dialog.setOnShowListener {
+            // Cap at 90% of the screen; the body scrolls
+            val max = (ctx.resources.displayMetrics.heightPixels * 0.9f).toInt()
+            if (column.height > max) column.layoutParams = column.layoutParams.apply { height = max }
+            autoFocusIndex?.let { views.getOrNull(it)?.requestFocus() } ?: body.requestFocus()
+        }
+        dialog.show()
+        return dialog
+    }
+
+    /** A text button (or a filled pill for the confirm action) with its own orange focus ring */
+    private fun dialogButton(ctx: Activity, button: KeypadDialogButton, onClick: () -> Unit): View {
+        val radius = dp(ctx, 20).toFloat()
+        val primary = ViewBuilders.color(ctx, androidx.appcompat.R.attr.colorPrimary)
+        val fill = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(if (button.filled) primary else Color.TRANSPARENT)
+        }
+        val ring = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(Color.TRANSPARENT)
+            setStroke(dp(ctx, 3), RING_ARGB)
+        }
+        return ViewBuilders.text(ctx, button.text, MR.attr.textAppearanceLabelLarge).apply {
+            setTextColor(if (button.filled) ViewBuilders.color(ctx, MR.attr.colorOnPrimary) else primary)
+            setPadding(dp(ctx, if (button.filled) 24 else 12), dp(ctx, 10), dp(ctx, if (button.filled) 24 else 12), dp(ctx, 10))
+            background = fill
+            foreground = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), ring)
+                addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
+            }
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { onClick() }
+        }
+    }
 }

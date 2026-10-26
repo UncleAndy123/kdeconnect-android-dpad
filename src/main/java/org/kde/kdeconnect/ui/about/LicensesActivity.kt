@@ -6,113 +6,121 @@
 
 package org.kde.kdeconnect.ui.about
 
-import org.kde.kdeconnect.ui.keypad.keypadIconButtonRing
-import androidx.activity.compose.LocalActivity
-import org.kde.kdeconnect.ui.keypad.SoftkeyOption
-import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
-import androidx.compose.ui.Modifier
-import org.kde.kdeconnect.base.KdeActivity
 import android.os.Bundle
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.MutableSharedFlow
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.progressindicator.CircularProgressIndicator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.kde.kdeconnect.ui.compose.KdeTheme
-import org.kde.kdeconnect.ui.compose.screen.licenses.LicensesEvent
-import org.kde.kdeconnect.ui.compose.screen.licenses.LicensesScreen
+import kotlinx.coroutines.withContext
+import org.kde.kdeconnect.base.KdeActivity
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftkeyOption
+import org.kde.kdeconnect.ui.views.ViewBuilders
+import org.kde.kdeconnect.ui.views.ViewBuilders.dp
 import org.kde.kdeconnect_tp.R
+import org.kde.kdeconnect_tp.databinding.ActivityPlainBinding
+import com.google.android.material.R as MR
 
+/** The bundled licenses, one block per library. Keypad: the list is the focus stop and UP/DOWN scroll it. */
 class LicensesActivity : KdeActivity() {
 
-    private val scrollEvents = MutableSharedFlow<LicensesEvent>()
+    private lateinit var list: RecyclerView
+    private var chunks: List<String> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        val binding = ActivityPlainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        setSupportActionBar(binding.toolbarLayout.toolbar)
+        supportActionBar?.apply {
+            setDisplayHomeAsUpEnabled(true)
+            setDisplayShowHomeEnabled(true)
+            title = getString(R.string.licenses)
+        }
+        val progress = CircularProgressIndicator(this).apply { isIndeterminate = true }
+        binding.content.addView(progress, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        list = RecyclerView(this).apply {
+            layoutManager = LinearLayoutManager(context)
+            addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
+            clipToPadding = false
+            setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 16))
+            visibility = View.GONE
+        }
+        ViewBuilders.keypadScroll(list)
+        binding.content.addView(list, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        setContent {
-            KdeTheme(this) {
-                Scaffold(
-                    topBar = {
-                        LicensesTopBar(
-                            onNavigateBack = { onBackPressedDispatcher.onBackPressed() },
-                            onScrollToTop = {
-                                lifecycleScope.launch {
-                                    scrollEvents.emit(
-                                        LicensesEvent.ScrollToTop
-                                    )
-                                }
-                            },
-                            onScrollToBottom = {
-                                lifecycleScope.launch {
-                                    scrollEvents.emit(
-                                        LicensesEvent.ScrollToBottom
-                                    )
-                                }
-                            }
-                        )
-                    }
-                ) { padding ->
-                    LicensesScreen(
-                        eventFlow = scrollEvents,
-                        contentPadding = padding
-                    )
+        lifecycleScope.launch {
+            chunks = withContext(Dispatchers.IO) {
+                resources.openRawResource(R.raw.license).bufferedReader().use { it.readText() }
+                    .split("-".repeat(80))
+                    .filter { it.isNotBlank() }
+                    .map { it.trim() }
+            }
+            list.adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+                override fun getItemCount() = chunks.size
+                override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+                    object : RecyclerView.ViewHolder(TextView(parent.context).apply {
+                        ViewBuilders.styled(this, MR.attr.textAppearanceBodyLarge, MR.attr.colorOnBackground)
+                        setPadding(0, dp(context, 8), 0, dp(context, 8))
+                        layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    }) {}
+                override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                    (holder.itemView as TextView).text = chunks[position]
                 }
             }
+            progress.visibility = View.GONE
+            list.visibility = View.VISIBLE
+            if (KeypadSoftkeys.isKeypadDevice(this@LicensesActivity)) list.requestFocus()
         }
     }
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LicensesTopBar(
-    onNavigateBack: () -> Unit,
-    onScrollToTop: () -> Unit,
-    onScrollToBottom: () -> Unit
-) {
-    // Keypad phones: the scroll shortcuts go to the soft key Options menu and the bar is dropped
-    val activity = LocalActivity.current
-    if (activity != null && KeypadSoftkeys.Keys(
-            left = KeypadSoftkeys.optionsKey(activity, listOf(
-                SoftkeyOption("Scroll to top", onScrollToTop),
-                SoftkeyOption("Scroll to bottom", onScrollToBottom),
-            )),
-            right = null,
-        )) return
-    TopAppBar(
-        title = { Text(stringResource(R.string.licenses)) },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack, modifier = Modifier.keypadIconButtonRing()) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_back_black_24dp),
-                    contentDescription = "Back"
-                )
-            }
-        },
-        actions = {
-            IconButton(onClick = onScrollToTop, modifier = Modifier.keypadIconButtonRing()) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_upward_black_24dp),
-                    contentDescription = "Scroll to top"
-                )
-            }
-            IconButton(onClick = onScrollToBottom, modifier = Modifier.keypadIconButtonRing()) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_downward_black_24dp),
-                    contentDescription = "Scroll to bottom"
-                )
-            }
-        }
-    )
+    override fun onResume() {
+        super.onResume()
+        // Keypad: the scroll shortcuts go to the soft key Options menu (the bar is dropped)
+        KeypadSoftkeys.bind(this, KeypadSoftkeys.optionsKey(this, listOf(
+            SoftkeyOption("Scroll to top") { scrollToTop() },
+            SoftkeyOption("Scroll to bottom") { scrollToBottom() },
+        )), null)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(Menu.NONE, MENU_TOP, Menu.NONE, "Scroll to top").setIcon(R.drawable.ic_arrow_upward_black_24dp)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        menu.add(Menu.NONE, MENU_BOTTOM, Menu.NONE, "Scroll to bottom").setIcon(R.drawable.ic_arrow_downward_black_24dp)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_TOP -> { scrollToTop(); true }
+        MENU_BOTTOM -> { scrollToBottom(); true }
+        else -> super.onOptionsItemSelected(item)
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
+    }
+
+    private fun scrollToTop() = list.smoothScrollToPosition(0)
+
+    private fun scrollToBottom() {
+        if (chunks.isNotEmpty()) list.smoothScrollToPosition(chunks.size - 1)
+    }
+
+    companion object {
+        private const val MENU_TOP = 1
+        private const val MENU_BOTTOM = 2
+    }
 }

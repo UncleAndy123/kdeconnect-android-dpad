@@ -6,15 +6,27 @@ SPDX-FileCopyrightText: 2023 Albert Vaca Cintora <albertvaka@gmail.com>
 SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 -->
 
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The device screen, in plain views (no Compose): DeviceFragment builds its content into @id/content -->
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/refresh"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="org.kde.kdeconnect.ui.DeviceFragment">
 
-    <androidx.compose.ui.platform.ComposeView
+    <androidx.core.widget.NestedScrollView
         android:id="@+id/device_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="?attr/colorSurface"
+        android:fillViewport="true">
 
-</FrameLayout>
+        <LinearLayout
+            android:id="@+id/content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
