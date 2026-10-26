@@ -54,6 +54,8 @@ Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204
 
 Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
 
+**Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
+
 ## Credits
 
 - **[Yapchik](https://github.com/theOnionsAreWatching/yapchik)** by theOnionsAreWatching: the soft-key engine. It finds the phone's soft keys and draws the on-screen soft-key bar with their labels. It is included as source in [`yapchik/`](yapchik/) under the GNU LGPL v3 or later (see [`yapchik/LICENSE`](yapchik/LICENSE) and [`yapchik/NOTICE`](yapchik/NOTICE)).

@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags, for the release notes
 
       - uses: actions/setup-java@v4
         with:
@@ -81,10 +83,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Release notes: every commit since this branch's previous release (a newer push cancels an older
+          # build, so one release can carry several pushes)
+          suffix="-${GITHUB_REF_NAME//\//-}"
+          prev=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | grep -- "${suffix}\$" | head -1 || true)
+          if [ -n "$prev" ] && git rev-parse -q --verify "refs/tags/$prev" > /dev/null; then
+            range="$prev..HEAD"; since="since $prev"
+          else
+            range="-20 HEAD"; since="(last 20)"
+          fi
+          {
+            echo "Automatic build of $GITHUB_SHA."
+            echo
+            echo "Commits $since:"
+            git log --no-merges --format='- %h %s' $range
+            echo
+            echo "See CHANGES-FROM-UPSTREAM.md."
+          } > notes.md
+          cat notes.md
           prerelease="--prerelease"
           [ "$GITHUB_REF_NAME" = "${{ github.event.repository.default_branch }}" ] && prerelease=""
           gh release create "${{ steps.apks.outputs.tag }}" out/*.apk \
             --target "$GITHUB_SHA" \
             --title "${{ steps.apks.outputs.title }}" \
-            --notes "Automatic build of $GITHUB_SHA. See CHANGES-FROM-UPSTREAM.md." \
+            --notes-file notes.md \
             $prerelease
