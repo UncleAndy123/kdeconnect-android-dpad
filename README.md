@@ -16,7 +16,7 @@ adb push cadence-phone-setup.sh /data/local/tmp/
 adb shell sh /data/local/tmp/cadence-phone-setup.sh
 ```
 
-It keeps any other app's accessibility service and notification listener, and is safe to run again after reinstalling.
+It keeps any other app's accessibility service and notification listener, and is safe to run again. Updates and reboots keep everything it sets, but on Android 7 using **Force stop** on KDE Connect turns its accessibility service off (remote keyboard and mouse stop working), so run the two commands again after that.
 
 <table align="center">
   <tr><td align="center"><img src="screenshots/keypad/01-device-list.png" width="160" alt="Device list"><br><sub>1. Device list</sub></td><td align="center"><img src="screenshots/keypad/02-list-options.png" width="160" alt="Options menu"><br><sub>2. Options menu</sub></td><td align="center"><img src="screenshots/keypad/03-device.png" width="160" alt="Device"><br><sub>3. Device</sub></td></tr>
