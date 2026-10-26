@@ -48,13 +48,11 @@ Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204
 
 | | Before | Now |
 |---|---|---|
-| Whole conversation list sent to the desktop | 36.3 s | **17.3 s** |
+| Whole conversation list sent to the desktop | 36.3 s | **12.8 s** |
 | Contacts (vCards) sent | 11.8 s | **8.3 s** |
 | An SMS sent from the desktop shows up as sent | 4.7 s | **2.8 s** |
 
-Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time.
-
-In progress: the conversation list read in one pass over the message tables instead of two queries per conversation (being measured).
+Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
 
 ## Credits
 
