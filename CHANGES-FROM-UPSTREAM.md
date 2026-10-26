@@ -24,6 +24,8 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 ## Faster on slow phones
 - **SMS conversation list about 3x faster.** The newest message of every conversation comes from one newest-first pass over the SMS and MMS tables (stopping once every conversation is found, at most 3000 messages; any conversation not reached is then asked for directly) instead of two queries per conversation.
 - **Fewer database round trips.** Each query asks the phone's message database for only the rows it needs (LIMIT; if a phone refuses it, the query runs as before), the "does this phone have a SIM-ID column" check runs once instead of before every query, and the phone's own numbers are only looked up when an MMS needs them.
+- **Notifications are built off the UI thread.** Decoding each app icon, PNG-encoding and hashing it and looking up the app name ran on the main thread for every notification; it now runs, in order, on a worker thread.
+- **MMS photo thumbnails are decoded at thumbnail size.** A camera photo was decoded at full resolution (tens of MB of bitmap) just to make a 100 px thumbnail.
 - **Contacts don't block anything else.** They used to be read on the connection's only reading thread, so while the computer synced contacts nothing else it sent (an SMS to send, a conversation to load) was even read. Now they are read in the background, with one timestamp query instead of one per contact, and sent 50 at a time so the computer gets the first ones straight away.
 
 ## Keypad-only phones (e.g. Kyocera Cadence S2720)
