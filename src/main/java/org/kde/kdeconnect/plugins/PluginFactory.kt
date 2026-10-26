@@ -37,12 +37,17 @@ object PluginFactory {
                 throw RuntimeException(e)
             }
         })
+        pluginInfoStarted = true
         Thread(pluginInfoTask, "PluginInfo").start()
     }
 
-    // The keys come straight from the class index, without waiting for the plugin info
+    private var pluginInfoStarted = false
+
+    // The keys come straight from the class index (the same keys the plugin info gets), so the device list doesn't
+    // wait for the plugin info; empty until initPluginInfo was called, like the plugin info itself
     val availablePlugins: Set<String>
-        get() = com.albertvaka.classindexksp.LoadablePlugin.asSequence().map { Plugin.getPluginKey(it.java) }.toSet()
+        get() = if (!pluginInfoStarted) emptySet()
+            else com.albertvaka.classindexksp.LoadablePlugin.asSequence().map { Plugin.getPluginKey(it.java) }.toSet()
     val incomingCapabilities: Set<String>
         get() = pluginInfo.values.flatMap { plugin -> plugin.supportedPacketTypes }.toSet()
     val outgoingCapabilities: Set<String>
