@@ -20,23 +20,27 @@ It keeps any other app's accessibility service and notification listener, and is
 
 <table align="center">
   <tr><td align="center"><img src="screenshots/keypad/01-device-list.png" width="160" alt="Device list"><br><sub>1. Device list</sub></td><td align="center"><img src="screenshots/keypad/02-list-options.png" width="160" alt="Options menu"><br><sub>2. Options menu</sub></td><td align="center"><img src="screenshots/keypad/03-device.png" width="160" alt="Device"><br><sub>3. Device</sub></td></tr>
-  <tr><td align="center"><img src="screenshots/keypad/04-device-options.png" width="160" alt="Device options"><br><sub>4. Device options</sub></td><td align="center"><img src="screenshots/keypad/05-media.png" width="160" alt="Media remote"><br><sub>5. Media remote</sub></td><td align="center"><img src="screenshots/keypad/06-keypad-mouse.png" width="160" alt="Keypad mouse"><br><sub>6. Keypad mouse</sub></td></tr>
-  <tr><td align="center"><img src="screenshots/keypad/07-keypad-mouse-options.png" width="160" alt="Mouse options"><br><sub>7. Mouse options</sub></td><td align="center"><img src="screenshots/keypad/08-compose-text.png" width="160" alt="Compose text"><br><sub>8. Compose text</sub></td><td align="center"><img src="screenshots/keypad/09-add-device.png" width="160" alt="Add device"><br><sub>9. Add device</sub></td></tr>
-  <tr><td align="center"><img src="screenshots/keypad/10-plugin-settings.png" width="160" alt="Plugin settings"><br><sub>10. Plugin settings</sub></td><td align="center"><img src="screenshots/keypad/11-settings.png" width="160" alt="Settings"><br><sub>11. Settings</sub></td><td align="center"><img src="screenshots/keypad/12-share.png" width="160" alt="Share"><br><sub>12. Share</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/04-device-options.png" width="160" alt="Device options"><br><sub>4. Device options</sub></td><td align="center"><img src="screenshots/keypad/05-media.png" width="160" alt="Media remote"><br><sub>5. Media remote</sub></td><td align="center"><img src="screenshots/keypad/06-pc-volume.png" width="160" alt="PC volume"><br><sub>6. PC volume</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/07-keypad-mouse.png" width="160" alt="Keypad mouse"><br><sub>7. Keypad mouse</sub></td><td align="center"><img src="screenshots/keypad/08-mouse-options.png" width="160" alt="Mouse options"><br><sub>8. Mouse options</sub></td><td align="center"><img src="screenshots/keypad/09-compose-text.png" width="160" alt="Compose text"><br><sub>9. Compose text</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/10-run-command.png" width="160" alt="Run Command"><br><sub>10. Run Command</sub></td><td align="center"><img src="screenshots/keypad/11-find-my-phone.png" width="160" alt="Find my phone"><br><sub>11. Find my phone</sub></td><td align="center"><img src="screenshots/keypad/12-drawing-tablet.png" width="160" alt="Drawing tablet"><br><sub>12. Drawing tablet</sub></td></tr>
+  <tr><td align="center"><img src="screenshots/keypad/13-plugin-settings.png" width="160" alt="Plugin settings"><br><sub>13. Plugin settings</sub></td><td align="center"><img src="screenshots/keypad/14-settings.png" width="160" alt="Settings"><br><sub>14. Settings</sub></td><td align="center"><img src="screenshots/keypad/15-share.png" width="160" alt="Share"><br><sub>15. Share</sub></td></tr>
 </table>
 
 1. **Device list**: opens with the first device focused (open the app)
 2. **Options menu**: on top of the soft-key bar (Left soft key)
 3. **Device**: first plugin focused (OK)
 4. **Device options**: ring, ping, plugin settings, unpair (Left soft key)
-5. **Media remote**: Play/Pause on the right key (→ OK)
-6. **Keypad mouse**: the keypad drives the PC pointer (↓ OK)
-7. **Keypad mouse options**: keyboard, compose, settings (Left soft key)
-8. **Compose text**: Clear / Send on the soft keys (Options → Compose text)
-9. **Add device by IP**: dialog opens focused (Options → Add devices by IP → Add device)
-10. **Plugin settings**: the ring hugs the toggle (Options → Plugin settings)
-11. **Settings**: soft-key switch and calibration (Options → Settings)
-12. **Share**: first device focused (share from any app)
+5. **Media remote**: every control reachable, Play/Pause on the right key (Multimedia control)
+6. **PC volume**: pick the output, mute, set the level (Devices tab)
+7. **Keypad mouse**: the keypad drives the PC pointer (Remote input)
+8. **Mouse options**: keyboard, compose, settings (Left soft key)
+9. **Compose text**: Clear / Send on the soft keys (Options → Compose text)
+10. **Run Command**: commands and their output from the PC (Run Command)
+11. **Find my phone**: Found it on the right key (rung from the PC)
+12. **Drawing tablet**: the keypad is the pen: 2 4 6 8 move, OK pen down/up (Use as drawing tablet)
+13. **Plugin settings**: the ring hugs the toggle (Options → Plugin settings)
+14. **Settings**: soft-key switch and calibration (Options → Settings)
+15. **Share**: first device focused (share from any app)
 
 ## Credits
 
