@@ -54,6 +54,8 @@ Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204
 
 Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
 
+In progress (being measured): notifications built off the UI thread; MMS photo thumbnails decoded at thumbnail size instead of full resolution.
+
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 
 ## Credits

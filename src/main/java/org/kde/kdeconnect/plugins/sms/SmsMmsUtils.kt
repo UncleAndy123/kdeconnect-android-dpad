@@ -405,13 +405,30 @@ object SmsMmsUtils {
      * @param id part ID of the image file attached with an MMS message
      * @return Returns the image as a bitmap
      */
-    fun getMmsImage(context: Context, id: Long): Bitmap? {
+    /**
+     * @param minSide when > 0, the image is decoded subsampled (a power of two) to about this size on its
+     * shortest side instead of at full resolution - a camera photo decoded whole is tens of MB of bitmap,
+     * slow and a likely out-of-memory on a low-end phone, when all that is needed is a small thumbnail.
+     */
+    fun getMmsImage(context: Context, id: Long, minSide: Int = 0): Bitmap? {
         val partURI = ContentUris.withAppendedId(SMSHelper.mMSPartUri, id)
         var bitmap: Bitmap? = null
 
         try {
+            val options = BitmapFactory.Options()
+            if (minSide > 0) {
+                options.inJustDecodeBounds = true
+                context.contentResolver.openInputStream(partURI).use { BitmapFactory.decodeStream(it, null, options) }
+                var sample = 1
+                while (options.outWidth > 0 && options.outHeight > 0 &&
+                    minOf(options.outWidth, options.outHeight) / (sample * 2) >= minSide) {
+                    sample *= 2
+                }
+                options.inJustDecodeBounds = false
+                options.inSampleSize = sample
+            }
             context.contentResolver.openInputStream(partURI).use { inputStream ->
-                bitmap = BitmapFactory.decodeStream(inputStream)
+                bitmap = BitmapFactory.decodeStream(inputStream, null, options)
             }
         } catch (e: IOException) {
             Log.e("SmsMmsUtils", "Exception", e)

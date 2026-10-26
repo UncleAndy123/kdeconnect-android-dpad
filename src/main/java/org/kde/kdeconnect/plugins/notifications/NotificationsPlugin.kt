@@ -21,7 +21,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import android.os.Message
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
@@ -44,19 +44,24 @@ import org.kde.kdeconnect_tp.R
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 @LoadablePlugin
 class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener {
     private lateinit var appDatabase: AppDatabase
-    private val currentNotifications = HashSet<String>()
+    // Touched from the worker thread below and from the connection's thread (actions, replies): concurrent collections
+    private val currentNotifications: MutableSet<String> = ConcurrentHashMap.newKeySet()
     // Here we will map every notification to it's icon(hash)
-    private val notificationsIcons = HashMap<String, String>()
+    private val notificationsIcons = ConcurrentHashMap<String, String>()
     private val postedNotifications = HashSet<String>()
-    private val pendingIntents = HashMap<String, RepliableNotification>()
-    private val pendingActions = mutableMapOf<String, MutableList<Notification.Action>>()
+    private val pendingIntents = ConcurrentHashMap<String, RepliableNotification>()
+    private val pendingActions = ConcurrentHashMap<String, MutableList<Notification.Action>>()
     private var serviceReady = false
     private lateinit var keyguardManager: KeyguardManager
-    private lateinit var mainHandler: Handler
+    // Building a notification packet (decoding the app's icon, PNG-encoding and hashing it, looking up the app name)
+    // is too heavy for the main thread on a slow phone: it all runs, in order, on this one worker thread instead.
+    private lateinit var workerThread: HandlerThread
+    private lateinit var workHandler: Handler
     private val postedNotificationsLock = Any()
 
     override val displayName: String
@@ -78,7 +83,8 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
     override fun onCreate() {
         appDatabase = AppDatabase.getInstance(context)
         keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        mainHandler = Handler(Looper.getMainLooper())
+        workerThread = HandlerThread("KDE/Notifications").also { it.start() }
+        workHandler = Handler(workerThread.looper)
         NotificationReceiver.RunCommand(context) { service ->
             service.addListener(this@NotificationsPlugin)
             serviceReady = service.isConnected
@@ -92,9 +98,10 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
         pendingActions.clear()
 
         synchronized(postedNotificationsLock) {
-            mainHandler.removeCallbacksAndMessages(null)
+            workHandler.removeCallbacksAndMessages(null)
             postedNotifications.clear()
         }
+        workerThread.quitSafely()
 
         NotificationReceiver.RunCommand(context) { service ->
             service.removeListener(this@NotificationsPlugin)
@@ -104,7 +111,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
     override fun onListenerConnected(service: NotificationReceiver) {
         serviceReady = true
         NotificationReceiver.RunCommand(context) { service ->
-            this.sendCurrentNotifications(service)
+            workHandler.post { this.sendCurrentNotifications(service) }
         }
     }
 
@@ -116,19 +123,22 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             cancelDelayedNotification(id)
         }
 
-        pendingActions.remove(id)
+        // On the worker too, so a removal can't overtake the notification it removes
+        workHandler.post {
+            pendingActions.remove(id)
 
-        if (!appDatabase.isEnabled(statusBarNotification.packageName)) {
+            if (!appDatabase.isEnabled(statusBarNotification.packageName)) {
+                currentNotifications.remove(id)
+                return@post
+            }
+
+            val np = NetworkPacket(PACKET_TYPE_NOTIFICATION)
+            np["id"] = id
+            np["isCancel"] = true
+            device.sendPacket(np)
             currentNotifications.remove(id)
-            return
+            notificationsIcons.remove(id)
         }
-
-        val np = NetworkPacket(PACKET_TYPE_NOTIFICATION)
-        np["id"] = id
-        np["isCancel"] = true
-        device.sendPacket(np)
-        currentNotifications.remove(id)
-        notificationsIcons.remove(id)
     }
 
     override fun onNotificationPosted(statusBarNotification: StatusBarNotification) {
@@ -151,7 +161,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             if (!postedNotifications.contains(key)) {
                 return
             }
-            val delayedNotification = Message.obtain(mainHandler, Runnable {
+            val delayedNotification = Message.obtain(workHandler, Runnable {
                 synchronized(postedNotificationsLock) {
                     if (!postedNotifications.contains(key)) {
                         return@Runnable
@@ -160,12 +170,12 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
                 sendNotification(statusBarNotification, false)
             })
             delayedNotification.obj = key
-            mainHandler.sendMessageDelayed(delayedNotification, NOTIFICATION_SYNC_DELAY_MS)
+            workHandler.sendMessageDelayed(delayedNotification, NOTIFICATION_SYNC_DELAY_MS)
         }
     }
 
     private fun cancelDelayedNotification(key: String) {
-        mainHandler.removeCallbacksAndMessages(key)
+        workHandler.removeCallbacksAndMessages(key)
     }
 
     // isPreexisting is true for notifications that we are sending in response to a request command
@@ -517,7 +527,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
         } else if (np.getBoolean("request")) {
             if (serviceReady) {
                 NotificationReceiver.RunCommand(context) { service ->
-                    this.sendCurrentNotifications(service)
+                    workHandler.post { this.sendCurrentNotifications(service) }
                 }
             }
         } else if (np.has("cancel")) {

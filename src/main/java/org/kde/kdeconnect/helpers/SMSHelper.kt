@@ -665,7 +665,7 @@ object SMSHelper {
                             val fileName = data.substring(data.lastIndexOf('/') + 1)
 
                             // Get the actual image from the mms database convert it into thumbnail and encode to Base64
-                            val image = SmsMmsUtils.getMmsImage(context, partID)
+                            val image = SmsMmsUtils.getMmsImage(context, partID, minOf(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT))
                             if (image != null) {
                                 val thumbnailImage = ThumbnailUtils.extractThumbnail(
                                     image,

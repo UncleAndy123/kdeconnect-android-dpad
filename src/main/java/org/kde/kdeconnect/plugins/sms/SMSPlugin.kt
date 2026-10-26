@@ -92,7 +92,9 @@ class SMSPlugin : Plugin() {
         }
     }
 
-    private val messageObserver: ContentObserver = MessageContentObserver(Handler(getLooper()!!))
+    // Lazy: plugin classes are also instantiated just to read their metadata (at app start, for every plugin),
+    // and getLooper() starts and waits for a thread
+    private val messageObserver: ContentObserver by lazy { MessageContentObserver(Handler(getLooper()!!)) }
 
 
     /**
