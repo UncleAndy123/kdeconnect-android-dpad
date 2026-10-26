@@ -7,42 +7,29 @@ package org.kde.kdeconnect.plugins.mpris
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.ConnectivityManager
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import androidx.collection.LruCache
 import androidx.core.content.getSystemService
 import androidx.core.net.ConnectivityManagerCompat
 import androidx.core.net.toUri
-import coil3.ImageLoader
-import coil3.decode.DataSource
-import coil3.decode.ImageSource
-import coil3.disk.DiskCache
-import coil3.fetch.FetchResult
-import coil3.fetch.Fetcher
-import coil3.fetch.SourceFetchResult
-import coil3.memory.MemoryCache
-import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.Options
-import coil3.request.allowHardware
-import coil3.size.Precision
-import coil3.toBitmap
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import okio.Path.Companion.toOkioPath
-import okio.source
 import org.kde.kdeconnect.NetworkPacket.Payload
 import java.io.File
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 
 /**
- * Handles the cache for album art. Downloading, decoding, resizing and caching are delegated to Coil.
+ * Handles the cache for album art: downloading (http/https), art transferred from the connected device, decoding at
+ * the size the screen needs, and a memory and a disk cache. Plain Android code (this used to be Coil + OkHttp).
  */
 internal object AlbumArtCache {
     private const val TAG = "KDE/Mpris/AlbumArtCache"
@@ -67,13 +54,24 @@ internal object AlbumArtCache {
      */
     private const val TRANSFER_REQUEST_TIMEOUT_MS = 30_000L
 
-    /**
-     * Loads album art from http(s) or from the disk cache (for art transferred from the device).
-     * Its memory cache holds at most 16 MB of uncompressed bitmaps, and its disk cache at most 12 MB of image files.
-     */
-    private lateinit var imageLoader: ImageLoader
+    /** At most this many bytes of decoded bitmaps in memory */
+    private const val MEMORY_CACHE_BYTES = 8 * 1024 * 1024
+
+    /** At most this many bytes of image files on disk; the least recently used go first */
+    private const val DISK_CACHE_BYTES = 12L * 1000L * 1000L
+
+    /** Downloads bigger than this are not album art */
+    private const val MAX_DOWNLOAD_BYTES = 8L * 1024L * 1024L
+
+    private val memoryCache = object : LruCache<String, Bitmap>(MEMORY_CACHE_BYTES) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
+    }
 
     private lateinit var appContext: Context
+    private lateinit var diskDir: File
+
+    /** Bitmaps are decoded no bigger than this (the screen's long side, capped at 1024): no more is ever shown */
+    private var maxSidePx = 1024
 
     /**
      * Used to check if the connection is metered
@@ -92,7 +90,9 @@ internal object AlbumArtCache {
      */
     private val DEVICE_FETCH_SCHEMES = listOf("file", "kdeconnect")
 
-    private val cacheScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    /** One background thread: downloads, disk reads and decoding, one at a time (gentle on a slow phone) */
+    private val worker = Executors.newSingleThreadExecutor { r -> Thread(r, "KDE/AlbumArt").apply { priority = Thread.MIN_PRIORITY } }
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
      * Initializes the disk cache. Needs to be called at least once before trying to use the cache
@@ -101,26 +101,14 @@ internal object AlbumArtCache {
      */
     @Synchronized
     fun initializeDiskCache(context: Context) {
-        if (this::imageLoader.isInitialized) return
+        if (this::appContext.isInitialized) return
         appContext = context.applicationContext
         connectivityManager = appContext.getSystemService()!!
-        imageLoader = ImageLoader.Builder(appContext)
-            .memoryCache {
-                MemoryCache.Builder()
-                    .maxSizeBytes(16L * 1024L * 1024L)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(File(appContext.cacheDir, "album_art").toOkioPath())
-                    .maxSizeBytes(1000L * 1000L * 12L)
-                    .build()
-            }
-            .components {
-                add(OkHttpNetworkFetcherFactory())
-                add(DeviceAlbumArtFetcher.Factory())
-            }
-            .build()
+        diskDir = File(appContext.cacheDir, "album_art_files")
+        // The old Coil cache (its own journal format) is not read any more
+        worker.execute { File(appContext.cacheDir, "album_art").deleteRecursively() }
+        val metrics = appContext.resources.displayMetrics
+        maxSidePx = maxOf(metrics.widthPixels, metrics.heightPixels).coerceIn(256, 1024)
     }
 
     /**
@@ -161,13 +149,13 @@ internal object AlbumArtCache {
             return null
         }
 
-        if (!this::imageLoader.isInitialized) {
+        if (!this::appContext.isInitialized) {
             Log.e(TAG, "The cache is not initialized!")
             return null
         }
 
         // First, check the in-memory cache
-        getFromMemoryCache(albumUrl)?.let { return it }
+        memoryCache.get(albumUrl)?.let { return it }
 
         // Do not retry failed fetches
         if (failedUrls[albumUrl] != null) {
@@ -179,7 +167,7 @@ internal object AlbumArtCache {
         }
 
         val fromDevice = url.scheme in DEVICE_FETCH_SCHEMES
-        if (fromDevice && !isInDiskCache(albumUrl)) {
+        if (fromDevice && !diskFile(albumUrl).exists()) {
             // Special-case file or kdeconnect, since we need to fetch it from the connected device
             val now = SystemClock.elapsedRealtime()
             var shouldAsk = false
@@ -203,17 +191,10 @@ internal object AlbumArtCache {
         return null
     }
 
-    private fun getFromMemoryCache(albumUrl: String): Bitmap? {
-        return imageLoader.memoryCache?.get(MemoryCache.Key(albumUrl))?.image?.toBitmap()
-    }
-
-    private fun isInDiskCache(albumUrl: String): Boolean {
-        return try {
-            imageLoader.diskCache?.openSnapshot(albumUrl)?.use { true } ?: false
-        } catch (e: IOException) {
-            Log.e(TAG, "Disk cache problem!", e)
-            false
-        }
+    /** The disk cache file for [albumUrl]: the SHA-1 of the url */
+    private fun diskFile(albumUrl: String): File {
+        val digest = MessageDigest.getInstance("SHA-1").digest(albumUrl.toByteArray())
+        return File(diskDir, digest.joinToString("") { "%02x".format(it) })
     }
 
     /**
@@ -223,9 +204,9 @@ internal object AlbumArtCache {
      * @param fromDevice Whether the art was transferred from the connected device, so it can only come from the disk cache
      */
     private fun load(albumUrl: String, fromDevice: Boolean) {
+        val file = diskFile(albumUrl)
         // Only download art on unmetered networks (wifi etc.), but still use what's in the disk cache
-        val metered = ConnectivityManagerCompat.isActiveNetworkMetered(connectivityManager)
-        if (!fromDevice && metered && !isInDiskCache(albumUrl)) {
+        if (!fromDevice && !file.exists() && ConnectivityManagerCompat.isActiveNetworkMetered(connectivityManager)) {
             // Not a failure, it will be downloaded once we are on an unmetered network
             return
         }
@@ -233,39 +214,113 @@ internal object AlbumArtCache {
             // Was already pending
             return
         }
-        val request = ImageRequest.Builder(appContext)
-            .data(if (fromDevice) DeviceAlbumArt(albumUrl) else albumUrl)
-            .memoryCacheKey(albumUrl)
-            .diskCacheKey(albumUrl)
-            .networkCachePolicy(if (metered) CachePolicy.DISABLED else CachePolicy.ENABLED)
-            // The bitmaps get passed to the media session and notifications
-            .allowHardware(false)
-            // Downscale big images (we don't need more for the notification or the now playing screen), never upscale
-            .size(1024)
-            .precision(Precision.INEXACT)
-            .listener(
-                onCancel = { pendingUrls.remove(albumUrl) },
-                onSuccess = { _, result ->
-                    pendingUrls.remove(albumUrl)
-                    val albumArt = result.image.toBitmap()
-                    for (mpris in registeredPlugins) {
-                        mpris.fetchedAlbumArt(albumUrl, albumArt)
+        worker.execute {
+            var bitmap: Bitmap? = null
+            try {
+                if (!file.exists()) {
+                    if (fromDevice) throw IOException("Album art not in the disk cache: $albumUrl")
+                    download(albumUrl, file)
+                }
+                file.setLastModified(System.currentTimeMillis()) // least recently used goes first
+                bitmap = decode(file) ?: throw IOException("Not an image: $albumUrl")
+                memoryCache.put(albumUrl, bitmap)
+            } catch (e: Exception) {
+                Log.d(TAG, "Failed to load album art: $albumUrl", e)
+                failedUrls.put(albumUrl, true)
+                // It might be an invalid image, don't keep it
+                file.delete()
+            } finally {
+                pendingUrls.remove(albumUrl)
+            }
+            val art = bitmap ?: return@execute
+            mainHandler.post {
+                for (mpris in registeredPlugins) {
+                    mpris.fetchedAlbumArt(albumUrl, art)
+                }
+            }
+        }
+    }
+
+    /** Downloads [albumUrl] (following redirects) into [file], then trims the disk cache */
+    private fun download(albumUrl: String, file: File) {
+        var url = URL(albumUrl)
+        var connection: HttpURLConnection
+        var redirects = 0
+        while (true) {
+            connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 15_000
+            connection.instanceFollowRedirects = false
+            val code = connection.responseCode
+            if (code in 300..399 && redirects++ < 5) {
+                val location = connection.getHeaderField("Location") ?: throw IOException("Redirect without a location")
+                connection.disconnect()
+                url = URL(url, location) // http <-> https redirects too
+                continue
+            }
+            if (code != HttpURLConnection.HTTP_OK) {
+                connection.disconnect()
+                throw IOException("HTTP $code for $albumUrl")
+            }
+            break
+        }
+        try {
+            if (connection.contentLengthLong > MAX_DOWNLOAD_BYTES) throw IOException("Too big: $albumUrl")
+            writeToDisk(file) { out ->
+                connection.inputStream.use { input ->
+                    val buffer = ByteArray(16 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        total += n
+                        if (total > MAX_DOWNLOAD_BYTES) throw IOException("Too big: $albumUrl")
+                        out.write(buffer, 0, n)
                     }
-                },
-                onError = { _, result ->
-                    pendingUrls.remove(albumUrl)
-                    Log.d(TAG, "Failed to load album art: $albumUrl", result.throwable)
-                    failedUrls.put(albumUrl, true)
-                    // It might be an invalid image, don't keep it
-                    try {
-                        imageLoader.diskCache?.remove(albumUrl)
-                    } catch (e: IOException) {
-                        Log.e(TAG, "Disk cache problem!", e)
-                    }
-                },
-            )
-            .build()
-        imageLoader.enqueue(request)
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Writes through a temporary file so a half-written image is never in the cache */
+    private fun writeToDisk(file: File, write: (java.io.OutputStream) -> Unit) {
+        diskDir.mkdirs()
+        val tmp = File(diskDir, file.name + ".tmp")
+        try {
+            tmp.outputStream().buffered().use(write)
+            if (!tmp.renameTo(file)) throw IOException("Can't store ${file.name}")
+        } finally {
+            tmp.delete()
+        }
+        trimDiskCache()
+    }
+
+    private fun trimDiskCache() {
+        val files = diskDir.listFiles()?.filter { !it.name.endsWith(".tmp") } ?: return
+        var total = files.sumOf { it.length() }
+        if (total <= DISK_CACHE_BYTES) return
+        for (f in files.sortedBy { it.lastModified() }) {
+            if (total <= DISK_CACHE_BYTES) break
+            total -= f.length()
+            f.delete()
+        }
+    }
+
+    /** Decodes [file] subsampled to about [maxSidePx] on its long side (never upscaled) */
+    private fun decode(file: File): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSidePx) sample *= 2
+        val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val side = maxOf(bitmap.width, bitmap.height)
+        if (side <= maxSidePx) return bitmap
+        val scale = maxSidePx.toFloat() / side
+        return Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true)
+            .also { if (it !== bitmap) bitmap.recycle() }
     }
 
     /**
@@ -278,9 +333,7 @@ internal object AlbumArtCache {
         if (payload == null) {
             return
         }
-        // We need the disk cache for this
-        val diskCache = if (this::imageLoader.isInitialized) imageLoader.diskCache else null
-        if (diskCache == null) {
+        if (!this::appContext.isInitialized) {
             Log.e(TAG, "The disk cache is not initialized!")
             payload.close()
             return
@@ -293,8 +346,9 @@ internal object AlbumArtCache {
             return
         }
 
+        val file = diskFile(albumUrl)
         // Check if we already have this art, or are already fetching it
-        val alreadyHandled = getFromMemoryCache(albumUrl) != null || isInDiskCache(albumUrl) || !pendingUrls.add(albumUrl)
+        val alreadyHandled = memoryCache.get(albumUrl) != null || file.exists() || !pendingUrls.add(albumUrl)
         // We got an answer, and from now on pendingUrls prevents asking again
         requestedTransfers.remove(albumUrl)
         if (alreadyHandled) {
@@ -302,28 +356,14 @@ internal object AlbumArtCache {
             return
         }
 
-        cacheScope.launch {
-            var editor: DiskCache.Editor? = null
+        worker.execute {
             var stored = false
             try {
-                editor = diskCache.openEditor(albumUrl)
-                if (editor == null) {
-                    Log.e(TAG, "Two disk cache edits happened at the same time, should be impossible!")
-                    return@launch
-                }
                 val inputStream = payload.inputStream ?: throw IOException("Payload without input stream")
-                diskCache.fileSystem.write(editor.data) {
-                    inputStream.source().use { writeAll(it) }
-                }
-                editor.commit()
+                writeToDisk(file) { out -> inputStream.copyTo(out, 16 * 1024) }
                 stored = true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to receive album art: $albumUrl", e)
-                try {
-                    editor?.abort()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Problem with the disk cache", e)
-                }
                 failedUrls.put(albumUrl, true)
             } finally {
                 payload.close()
@@ -332,31 +372,6 @@ internal object AlbumArtCache {
             // Now it's in the disk cache, so it can be loaded
             if (stored) {
                 load(albumUrl, fromDevice = true)
-            }
-        }
-    }
-
-    /**
-     * Album art transferred from the connected device, which can only be found in the disk cache
-     */
-    private class DeviceAlbumArt(val url: String)
-
-    /**
-     * Reads [DeviceAlbumArt] from the disk cache. Prevents Coil from interpreting file:// urls as local files.
-     */
-    private class DeviceAlbumArtFetcher(private val url: String, private val diskCache: DiskCache) : Fetcher {
-        override suspend fun fetch(): FetchResult {
-            val snapshot = diskCache.openSnapshot(url) ?: throw IOException("Album art not in the disk cache: $url")
-            return SourceFetchResult(
-                source = ImageSource(snapshot.data, diskCache.fileSystem, url, snapshot),
-                mimeType = null,
-                dataSource = DataSource.DISK,
-            )
-        }
-
-        class Factory : Fetcher.Factory<DeviceAlbumArt> {
-            override fun create(data: DeviceAlbumArt, options: Options, imageLoader: ImageLoader): Fetcher? {
-                return imageLoader.diskCache?.let { DeviceAlbumArtFetcher(data.url, it) }
             }
         }
     }
