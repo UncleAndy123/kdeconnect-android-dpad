@@ -24,6 +24,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.StringRes
 import androidx.annotation.UiThread
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.viewModels
@@ -202,7 +203,11 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
     private val pluginsChangedListener =
         PluginsChangedListener { mActivity?.runOnUiThread { refreshUI() } }
 
+    private val uiVersion = mutableIntStateOf(0)
+    private var contentSet = false
+
     override fun onDestroyView() {
+        contentSet = false
         device?.apply {
             removePluginsChangedListener(pluginsChangedListener)
             removePairingCallback(pairingCallback)
@@ -228,10 +233,20 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         //Once in-app, there is no point in keep displaying the notification if any
         device.hidePairingNotification()
 
+        // Compose the screen once and recompose it on changes. setContent() on every refresh threw the whole
+        // composition away and built it again - device state changes (a battery or signal report from the computer,
+        // plugins reloading) come often, and a fresh composition is slow on a low-end phone and resets focus.
+        if (contentSet) {
+            uiVersion.intValue++
+            mActivity?.invalidateOptionsMenu()
+            return
+        }
+        contentSet = true
         binding.deviceView.apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 KdeTheme(context) {
+                    uiVersion.intValue // read: recompose this content when refreshUI() bumps it
                     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
                     val pairingErrorMessage by viewModel.pairingErrorMessage.collectAsStateWithLifecycle()
                     // Keypad soft keys (vela-dpad model): LEFT = Options (this screen's menu, plus the
