@@ -52,7 +52,10 @@ class AboutFragment : Fragment() {
         }
         val gap = dp(ctx, 16)
         fun lp(top: Int = gap) = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = top }
-        column.addView(appInfoCard(ctx), lp(0))
+        val appCard = appInfoCard(ctx)
+        column.addView(appCard, lp(0))
+        // Keypad phones: open with the app card focused (OK copies the version), not with nothing focused
+        if (org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(ctx)) column.post { appCard.requestFocus() }
         column.addView(actionButtons(ctx), lp())
         column.addView(authorsCard(ctx), lp())
         return NestedScrollView(ctx).apply { addView(column); ViewBuilders.unfocusableScroll(this) }
