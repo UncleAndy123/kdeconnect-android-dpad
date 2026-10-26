@@ -53,4 +53,10 @@ appops set $PKG SYSTEM_ALERT_WINDOW allow
 # Keep the connection alive while the phone is closed (Doze)
 dumpsys deviceidle whitelist +$PKG > /dev/null
 
+# Compile the whole app ahead of time. Android 7-9 otherwise runs a freshly installed app interpreted and
+# compiles it bit by bit over the following days; on a low-end phone that makes everything slower until then.
+# (An app update resets this: run this script again after updating.)
+echo "Compiling KDE Connect ahead of time (can take a few minutes on a slow phone)..."
+cmd package compile -m speed -f $PKG > /dev/null 2>&1 || echo "  (could not compile ahead of time, skipped)"
+
 echo "Done. Open KDE Connect once so its background service starts."
