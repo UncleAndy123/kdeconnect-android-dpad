@@ -5,6 +5,7 @@
  */
 package org.kde.kdeconnect.ui
 
+import android.app.Activity
 import org.kde.kdeconnect.ui.keypad.SoftkeyOption
 import org.kde.kdeconnect.ui.keypad.SoftKey
 import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
@@ -216,6 +217,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
 
     override fun onDestroyView() {
         refreshingCollected = false
+        boundKeys = null
+        firstControl = null
         mActivity?.let { KeypadSoftkeys.clear(it) }
         device?.apply {
             removePluginsChangedListener(pluginsChangedListener)
@@ -224,8 +227,26 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         super.onDestroyView()
     }
 
+    // This screen's soft keys and first control, re-applied on resume: when this screen replaces another one,
+    // that screen's view is torn down (clearing its keys) after this one was built
+    private var boundKeys: Pair<SoftKey?, SoftKey?>? = null
+    private var firstControl: View? = null
+
+    private fun bindKeys(activity: Activity, left: SoftKey?, right: SoftKey?) {
+        boundKeys = left to right
+        KeypadSoftkeys.bind(activity, left, right)
+    }
+
     override fun onResume() {
         super.onResume()
+        mActivity?.let { activity ->
+            boundKeys?.let { (left, right) -> KeypadSoftkeys.bind(activity, left, right) }
+            if (KeypadSoftkeys.isKeypadDevice(activity)) {
+                val focus = activity.currentFocus
+                val inContent = focus != null && generateSequence(focus.parent) { it.parent }.any { it === binding.content }
+                if (!inContent) firstControl?.requestFocus()
+            }
+        }
         with(requireView()) {
             // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus
             if (!isInTouchMode) return
@@ -258,11 +279,11 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         when (device.pairStatus) {
             PairingHandler.PairState.Paired -> {
                 if (device.isReachable) {
-                    KeypadSoftkeys.bind(activity, optionsKey, null)
+                    bindKeys(activity, optionsKey, null)
                     firstFocusable = addPluginsScreen(content, device)
                     displayBatteryInfoIfPossible()
                 } else {
-                    KeypadSoftkeys.bind(activity, optionsKey, SoftKey(getString(R.string.refresh)) { refreshDevicesAction() })
+                    bindKeys(activity, optionsKey, SoftKey(getString(R.string.refresh)) { refreshDevicesAction() })
                     firstFocusable = addErrorScreen(content, showRefreshButton = !KeypadSoftkeys.hasKeys(activity))
                 }
             }
@@ -288,12 +309,12 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                     Unit
                 }
                 when (device.pairStatus) {
-                    PairingHandler.PairState.NotPaired -> KeypadSoftkeys.bind(activity, optionsKey,
+                    PairingHandler.PairState.NotPaired -> bindKeys(activity, optionsKey,
                         SoftKey(getString(R.string.softkey_pair)) { onRequestPairing() })
-                    PairingHandler.PairState.RequestedByPeer -> KeypadSoftkeys.bind(activity,
+                    PairingHandler.PairState.RequestedByPeer -> bindKeys(activity,
                         SoftKey(getString(R.string.pairing_reject)) { onRejectPairing() },
                         SoftKey(getString(R.string.pairing_accept)) { onAcceptPairing() })
-                    else -> KeypadSoftkeys.bind(activity, optionsKey, null)
+                    else -> bindKeys(activity, optionsKey, null)
                 }
                 firstFocusable = addPairingScreen(content, device, !KeypadSoftkeys.hasKeys(activity),
                     onRequestPairing, onAcceptPairing, onRejectPairing)
@@ -306,6 +327,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
             val keep = focusedTag?.let { content.findViewWithTag<View>(it) }
             (keep ?: firstFocusable)?.requestFocus()
         }
+        firstControl = firstFocusable
         activity.invalidateOptionsMenu()
     }
 
