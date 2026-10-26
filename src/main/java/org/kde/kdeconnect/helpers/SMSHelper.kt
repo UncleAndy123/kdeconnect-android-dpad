@@ -242,7 +242,7 @@ object SMSHelper {
 
         // Get all the active phone numbers so we can filter the user out of the list of targets
         // of any MMSes (only read when there is an MMS to parse)
-        val userPhoneNumbers by lazy { TelephonyHelper.getAllPhoneNumbers(context) }
+        val userPhoneNumbers = lazy { TelephonyHelper.getAllPhoneNumbers(context) }
         try {
             queryWithLimit(
                 uri,
@@ -255,55 +255,7 @@ object SMSHelper {
             ).use { myCursor ->
                 if (myCursor != null && myCursor.moveToFirst()) {
                     do {
-                        val transportTypeColumn = myCursor.getColumnIndex(
-                            TRANSPORT_TYPE_DISCRIMINATOR_COLUMN
-                        )
-                        val transportType = if (transportTypeColumn < 0 || myCursor.isNull(transportTypeColumn)) {
-                            // The column didn't actually exist or is null. See https://issuetracker.google.com/issues/134592631
-                            // Try to determine using other information
-                            val messageBoxColumn = myCursor.getColumnIndex(Telephony.Mms.MESSAGE_BOX)
-                            // MessageBoxColumn is defined for MMS only
-                            val messageBoxExists = messageBoxColumn >= 0 && !myCursor.isNull(messageBoxColumn)
-                            if (messageBoxExists) {
-                                TransportType.MMS
-                            } else {
-                                // There is room here for me to have made an assumption and we'll guess wrong
-                                // The penalty is the user will potentially get some garbled data, so that's not too bad.
-                                TransportType.SMS
-                            }
-                        } else {
-                            val transportTypeString = myCursor.getString(transportTypeColumn)
-                            if ("mms" == transportTypeString) {
-                                TransportType.MMS
-                            } else if ("sms" == transportTypeString) {
-                                TransportType.SMS
-                            } else {
-                                Log.w("SMSHelper", "Skipping message with unknown TransportType: $transportTypeString")
-                                continue
-                            }
-                        }
-                        val messageInfo = HashMap<String, String?>()
-                        for (columnIdx in 0 until myCursor.columnCount) {
-                            val colName = myCursor.getColumnName(columnIdx)
-                            val body = myCursor.getString(columnIdx)
-                            messageInfo[colName] = body
-                        }
-                        try {
-                            when (transportType) {
-                                TransportType.SMS -> toReturn.add(parseSMS(context, messageInfo))
-                                TransportType.MMS -> toReturn.add(
-                                    parseMMS(
-                                        context,
-                                        messageInfo,
-                                        userPhoneNumbers
-                                    )
-                                )
-                            }
-                        } catch (e: Exception) {
-                            // Swallow exceptions in case we get an error reading one message so that we
-                            // might be able to read some of them
-                            Log.e("SMSHelper", "Got an error reading a message of type $transportType", e)
-                        }
+                        rowToMessage(myCursor, context, userPhoneNumbers)?.let { toReturn.add(it) }
                     } while ((numberToGet == null || toReturn.size < numberToGet) && myCursor.moveToNext())
                 }
             }
@@ -335,6 +287,56 @@ object SMSHelper {
             }
         }
         return toReturn
+    }
+
+    /**
+     * Parse the message at the cursor's current row. Returns null for rows that can't be read.
+     */
+    private fun rowToMessage(myCursor: Cursor, context: Context, userPhoneNumbers: Lazy<List<LocalPhoneNumber>>): Message? {
+        val transportTypeColumn = myCursor.getColumnIndex(
+            TRANSPORT_TYPE_DISCRIMINATOR_COLUMN
+        )
+        val transportType = if (transportTypeColumn < 0 || myCursor.isNull(transportTypeColumn)) {
+            // The column didn't actually exist or is null. See https://issuetracker.google.com/issues/134592631
+            // Try to determine using other information
+            val messageBoxColumn = myCursor.getColumnIndex(Telephony.Mms.MESSAGE_BOX)
+            // MessageBoxColumn is defined for MMS only
+            val messageBoxExists = messageBoxColumn >= 0 && !myCursor.isNull(messageBoxColumn)
+            if (messageBoxExists) {
+                TransportType.MMS
+            } else {
+                // There is room here for me to have made an assumption and we'll guess wrong
+                // The penalty is the user will potentially get some garbled data, so that's not too bad.
+                TransportType.SMS
+            }
+        } else {
+            val transportTypeString = myCursor.getString(transportTypeColumn)
+            if ("mms" == transportTypeString) {
+                TransportType.MMS
+            } else if ("sms" == transportTypeString) {
+                TransportType.SMS
+            } else {
+                Log.w("SMSHelper", "Skipping message with unknown TransportType: $transportTypeString")
+                return null
+            }
+        }
+        val messageInfo = HashMap<String, String?>()
+        for (columnIdx in 0 until myCursor.columnCount) {
+            val colName = myCursor.getColumnName(columnIdx)
+            val body = myCursor.getString(columnIdx)
+            messageInfo[colName] = body
+        }
+        return try {
+            when (transportType) {
+                TransportType.SMS -> parseSMS(context, messageInfo)
+                TransportType.MMS -> parseMMS(context, messageInfo, userPhoneNumbers.value)
+            }
+        } catch (e: Exception) {
+            // Swallow exceptions in case we get an error reading one message so that we
+            // might be able to read some of them
+            Log.e("SMSHelper", "Got an error reading a message of type $transportType", e)
+            null
+        }
     }
 
     // Message providers that refused a LIMIT in the sort order (remembered per Uri, so it is only tried once)
@@ -514,13 +516,20 @@ object SMSHelper {
                 .map { threadTimestampPairElement: Pair<ThreadID, Long> -> threadTimestampPairElement.first }
         }
 
-        // Step 2: Get the actual message object from each thread ID
-        // Do this in a sequence, so that the caller can choose to interrupt us as frequently as desired
+        // Step 2: Get the newest message of each thread.
+        // Asking per thread costs two provider queries per conversation, which is most of the time on a slow
+        // phone. Instead walk the SMS and MMS tables newest-first, side by side, and take the first message seen
+        // in each thread - one query each, and conversations come out most-recent first. A thread not reached
+        // within SCAN_LIMIT messages (a long-silent conversation under a heavy texter) is then asked for directly.
         return sequence {
-            var threadIdsIndex = 0
-            while (threadIdsIndex < threadIds.size) {
-                val nextThreadId = threadIds[threadIdsIndex]
-                threadIdsIndex++
+            val remaining = LinkedHashSet(threadIds)
+            if (remaining.isEmpty()) return@sequence
+            try {
+                scanNewestPerThread(context, remaining).forEach { yield(it) }
+            } catch (e: Exception) {
+                Log.e("SMSHelper", "Scanning for the newest message of each thread failed, asking per thread", e)
+            }
+            for (nextThreadId in remaining.toList()) {
                 val firstMessage = try {
                     getMessagesInThread(context, nextThreadId, 1L)
                 } catch (e: Exception) {
@@ -536,6 +545,46 @@ object SMSHelper {
                     continue
                 }
                 yield(firstMessage[0])
+            }
+        }
+    }
+
+    /** How many messages [scanNewestPerThread] reads before leaving the remaining threads to per-thread queries */
+    private const val SCAN_LIMIT = 3000
+
+    /**
+     * Yields the newest message of each thread in [remaining] (removing it from the set), reading the SMS and MMS
+     * tables newest-first in step, until every thread is found or [SCAN_LIMIT] messages have been read.
+     */
+    @SuppressLint("NewApi")
+    private fun scanNewestPerThread(context: Context, remaining: MutableSet<ThreadID>): Sequence<Message> = sequence {
+        val smsColumns: MutableList<String> = Message.smsColumns.toMutableList()
+        val mmsColumns: MutableList<String> = Message.mmsColumns.toMutableList()
+        if (getSubscriptionIdSupport(Telephony.Sms.CONTENT_URI, context)) smsColumns.addAll(Message.multiSIMColumns)
+        if (getSubscriptionIdSupport(Telephony.Mms.CONTENT_URI, context)) mmsColumns.addAll(Message.multiSIMColumns)
+        val sortOrder = Message.DATE + " DESC"
+        val userPhoneNumbers = lazy { TelephonyHelper.getAllPhoneNumbers(context) }
+        context.contentResolver.query(Telephony.Sms.CONTENT_URI, smsColumns.toTypedArray(), null, null, sortOrder).use { sms ->
+            context.contentResolver.query(Telephony.Mms.CONTENT_URI, mmsColumns.toTypedArray(), null, null, sortOrder).use { mms ->
+                // SMS dates are in milliseconds, MMS dates in seconds
+                fun date(c: Cursor?, scale: Long): Long =
+                    if (c == null || c.isAfterLast) Long.MIN_VALUE else c.getLong(c.getColumnIndexOrThrow(Message.DATE)) * scale
+                fun threadOf(c: Cursor) = ThreadID(c.getLong(c.getColumnIndexOrThrow(Message.THREAD_ID)))
+                sms?.moveToFirst()
+                mms?.moveToFirst()
+                var read = 0
+                while (remaining.isNotEmpty() && read < SCAN_LIMIT) {
+                    val smsDate = date(sms, 1)
+                    val mmsDate = date(mms, 1000)
+                    if (smsDate == Long.MIN_VALUE && mmsDate == Long.MIN_VALUE) break
+                    val cursor = if (smsDate >= mmsDate) sms!! else mms!!
+                    val thread = threadOf(cursor)
+                    if (remaining.remove(thread)) {
+                        rowToMessage(cursor, context, userPhoneNumbers)?.let { yield(it) } ?: remaining.add(thread)
+                    }
+                    cursor.moveToNext()
+                    read++
+                }
             }
         }
     }

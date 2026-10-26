@@ -54,6 +54,8 @@ Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204
 
 Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time.
 
+In progress: the conversation list read in one pass over the message tables instead of two queries per conversation (being measured).
+
 ## Credits
 
 - **[Yapchik](https://github.com/theOnionsAreWatching/yapchik)** by theOnionsAreWatching: the soft-key engine. It finds the phone's soft keys and draws the on-screen soft-key bar with their labels. It is included as source in [`yapchik/`](yapchik/) under the GNU LGPL v3 or later (see [`yapchik/LICENSE`](yapchik/LICENSE) and [`yapchik/NOTICE`](yapchik/NOTICE)).
