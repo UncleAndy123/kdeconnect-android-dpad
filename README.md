@@ -42,6 +42,18 @@ It keeps any other app's accessibility service and notification listener, and is
 14. **Settings**: soft-key switch and calibration (Options → Settings)
 15. **Share**: first device focused (share from any app)
 
+## Speed on slow phones
+
+Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204 SMS in 82 conversations and 31 contacts, timing what the desktop asks for right after it connects:
+
+| | Before | Now |
+|---|---|---|
+| Whole conversation list sent to the desktop | 36.3 s | **17.3 s** |
+| Contacts (vCards) sent | 11.8 s | **8.3 s** |
+| An SMS sent from the desktop shows up as sent | 4.7 s | **2.8 s** |
+
+Contacts no longer hold up everything else from the computer while they are read, and they are sent 50 at a time.
+
 ## Credits
 
 - **[Yapchik](https://github.com/theOnionsAreWatching/yapchik)** by theOnionsAreWatching: the soft-key engine. It finds the phone's soft keys and draws the on-screen soft-key bar with their labels. It is included as source in [`yapchik/`](yapchik/) under the GNU LGPL v3 or later (see [`yapchik/LICENSE`](yapchik/LICENSE) and [`yapchik/NOTICE`](yapchik/NOTICE)).

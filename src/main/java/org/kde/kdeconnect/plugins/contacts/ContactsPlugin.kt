@@ -14,9 +14,9 @@ import androidx.core.content.edit
 import androidx.fragment.app.DialogFragment
 import org.kde.kdeconnect.NetworkPacket
 import org.kde.kdeconnect.helpers.ContactsHelper
-import org.kde.kdeconnect.helpers.ContactsHelper.ContactNotFoundException
 import org.kde.kdeconnect.helpers.ContactsHelper.VCardBuilder
 import org.kde.kdeconnect.helpers.ContactsHelper.uID
+import org.kde.kdeconnect.helpers.ThreadHelper
 import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory.LoadablePlugin
 import org.kde.kdeconnect.ui.AlertDialogFragment
@@ -83,16 +83,13 @@ class ContactsPlugin : Plugin() {
      *
      * @param vcard vcard to apply metadata to
      * @param uID   uID to which the vcard corresponds
-     * @throws ContactNotFoundException If the given ID for some reason does not match a contact
+     * @param timestamp last-changed timestamp of the contact
      * @return The same VCard as was passed in, but now with KDE Connect-specific fields
      */
-    @Throws(ContactNotFoundException::class)
-    private fun addVCardMetadata(vcard: VCardBuilder, uID: uID): VCardBuilder {
+    private fun addVCardMetadata(vcard: VCardBuilder, uID: uID, timestamp: Long): VCardBuilder {
         // Append the device ID line
         // Unclear if the deviceID forms a valid name per the vcard spec. Worry about that later..
         vcard.appendLine("X-KDECONNECT-ID-DEV-${device.deviceId}", uID.toString())
-
-        val timestamp: Long = ContactsHelper.getContactTimestamp(context, uID)
         vcard.appendLine("REV", timestamp.toString())
 
         return vcard
@@ -135,33 +132,49 @@ class ContactsPlugin : Plugin() {
             return false
         }
 
-        val uIDsToVCards: Map<uID, VCardBuilder> = ContactsHelper.getVCardsForContactIDs(context, storedUIDs)
+        // One query for every timestamp instead of one per contact
+        val timestamps: Map<uID, Long> = ContactsHelper.getAllContactTimestamps(context)
 
-        val reply = NetworkPacket(PACKET_TYPE_CONTACTS_RESPONSE_VCARDS).apply {
-            // ContactsHelper.getVCardsForContactIDs(..) is allowed to reply without some of the requested uIDs if they were not in the database, so update our list
-            val uIDsAsStrings = mutableListOf<String>()
-            for ((uID: uID, vcard: VCardBuilder) in uIDsToVCards) {
-                try {
-                    val vcardWithMetadata = addVCardMetadata(vcard, uID)
+        // Building a vCard is one round trip to the contacts provider per contact, which adds up on slow phones.
+        // Reply in batches so the other end gets contacts as they are read, instead of one huge packet at the end.
+        val batches = storedUIDs.chunked(VCARDS_PER_PACKET).ifEmpty { listOf(emptyList()) }
+        for (batch in batches) {
+            val uIDsToVCards: Map<uID, VCardBuilder> = ContactsHelper.getVCardsForContactIDs(context, batch)
+
+            val reply = NetworkPacket(PACKET_TYPE_CONTACTS_RESPONSE_VCARDS).apply {
+                // ContactsHelper.getVCardsForContactIDs(..) is allowed to reply without some of the requested uIDs if they were not in the database, so update our list
+                val uIDsAsStrings = mutableListOf<String>()
+                for ((uID: uID, vcard: VCardBuilder) in uIDsToVCards) {
+                    val timestamp = timestamps[uID]
+                    if (timestamp == null) {
+                        Log.e("ContactsPlugin", "handleRequestVCardsByUIDs failed to find contact with uID $uID")
+                        continue
+                    }
                     // Store this as a valid uID
                     uIDsAsStrings.add(uID.toString())
                     // Add the uid -> vcard pairing to the packet
-                    set(uID.toString(), vcardWithMetadata.toString())
-                } catch (_: ContactNotFoundException) {
-                    Log.e("ContactsPlugin", "handleRequestVCardsByUIDs failed to find contact with uID $uID")
+                    set(uID.toString(), addVCardMetadata(vcard, uID, timestamp).toString())
                 }
+                set(PACKET_UIDS_KEY, uIDsAsStrings)
             }
-            set(PACKET_UIDS_KEY, uIDsAsStrings)
-        }
 
-        device.sendPacket(reply)
+            device.sendPacket(reply)
+        }
 
         return true
     }
 
+    // Reading contacts can take a long time on a slow phone. Do it off the connection's reading thread, which would
+    // otherwise hold back every other packet from the computer (SMS to send, conversation requests...) meanwhile.
     override fun onPacketReceived(np: NetworkPacket): Boolean = when (np.type) {
-        PACKET_TYPE_CONTACTS_REQUEST_ALL_UIDS_TIMESTAMPS -> this.handleRequestAllUIDsTimestamps(np)
-        PACKET_TYPE_CONTACTS_REQUEST_VCARDS_BY_UIDS -> this.handleRequestVCardsByUIDs(np)
+        PACKET_TYPE_CONTACTS_REQUEST_ALL_UIDS_TIMESTAMPS -> {
+            ThreadHelper.execute { this.handleRequestAllUIDsTimestamps(np) }
+            true
+        }
+        PACKET_TYPE_CONTACTS_REQUEST_VCARDS_BY_UIDS -> {
+            ThreadHelper.execute { this.handleRequestVCardsByUIDs(np) }
+            true
+        }
         else -> {
             Log.e("ContactsPlugin", "Contacts plugin received an unexpected packet!")
             false
@@ -170,6 +183,9 @@ class ContactsPlugin : Plugin() {
 
     companion object {
         private const val PACKET_UIDS_KEY: String = "uids"
+
+        /** vCards per reply packet (see handleRequestVCardsByUIDs) */
+        private const val VCARDS_PER_PACKET: Int = 50
 
         /**
          * Used to request the device send the unique ID of every contact

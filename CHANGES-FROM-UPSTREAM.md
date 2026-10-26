@@ -21,6 +21,10 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **Remote mouse: drag and drop.** On Android 7, holding the mouse button used to do only a long-press. You can now drag. Because of an Android 7 limit, the drag plays out on the phone when you let go of the button, not live while you move.
 - **Receiving files.** Files sent from the computer keep their original "last modified" date on Android 7, as they already did on newer Android.
 
+## Faster on slow phones
+- **SMS conversation list about 2x faster.** Each query asks the phone's message database for only the rows it needs (LIMIT; if a phone refuses it, the query runs as before), the "does this phone have a SIM-ID column" check runs once instead of before every query, and the phone's own numbers are only looked up when an MMS needs them.
+- **Contacts don't block anything else.** They used to be read on the connection's only reading thread, so while the computer synced contacts nothing else it sent (an SMS to send, a conversation to load) was even read. Now they are read in the background, with one timestamp query instead of one per contact, and sent 50 at a time so the computer gets the first ones straight away.
+
 ## Keypad-only phones (e.g. Kyocera Cadence S2720)
 Everything below switches on automatically on phones with no touchscreen (or a real D-pad). Touch phones look and work exactly like upstream.
 

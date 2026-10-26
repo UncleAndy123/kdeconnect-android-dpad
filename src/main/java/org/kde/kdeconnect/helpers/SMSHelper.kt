@@ -9,6 +9,7 @@ package org.kde.kdeconnect.helpers
 import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteException
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
@@ -188,7 +189,13 @@ object SMSHelper {
      * @param uri Uri indicating the messages database to check
      * @param context android.content.Context running the request.
      */
-    private fun getSubscriptionIdSupport(uri: Uri, context: Context): Boolean {
+    // The answer never changes while the app runs, and asking costs a query: remember it per Uri
+    private val subscriptionIdSupport = java.util.concurrent.ConcurrentHashMap<Uri, Boolean>()
+
+    private fun getSubscriptionIdSupport(uri: Uri, context: Context): Boolean =
+        subscriptionIdSupport.getOrPut(uri) { querySubscriptionIdSupport(uri, context) }
+
+    private fun querySubscriptionIdSupport(uri: Uri, context: Context): Boolean {
         // Some (Xiaomi) devices running >= Android Lollipop (SDK 22+) don't support
         // `Telephony.Sms.SUBSCRIPTION_ID`, so additional check is needed.
         // It may be possible to use "sim_id" instead of "sub_id" on these devices
@@ -234,15 +241,17 @@ object SMSHelper {
         val toReturn = mutableListOf<Message>()
 
         // Get all the active phone numbers so we can filter the user out of the list of targets
-        // of any MMSes
-        val userPhoneNumbers = TelephonyHelper.getAllPhoneNumbers(context)
+        // of any MMSes (only read when there is an MMS to parse)
+        val userPhoneNumbers by lazy { TelephonyHelper.getAllPhoneNumbers(context) }
         try {
-            context.contentResolver.query(
+            queryWithLimit(
                 uri,
+                context,
                 fetchColumns.toTypedArray(),
                 selection,
                 selectionArgs,
-                sortOrder
+                sortOrder,
+                numberToGet
             ).use { myCursor ->
                 if (myCursor != null && myCursor.moveToFirst()) {
                     do {
@@ -326,6 +335,38 @@ object SMSHelper {
             }
         }
         return toReturn
+    }
+
+    // Message providers that refused a LIMIT in the sort order (remembered per Uri, so it is only tried once)
+    private val limitUnsupported: MutableSet<Uri> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    /**
+     * ContentResolver.query, asking the provider for at most [numberToGet] rows when that is set.
+     *
+     * Without a limit the provider sorts and ships every matching row (a cursor window is up to ~2 MB) even when we
+     * only read the first one - for the newest message of each conversation, that is most of the cost on a slow
+     * phone. The Telephony providers take "LIMIT n" after the sort order; if one refuses it, query without.
+     */
+    private fun queryWithLimit(
+        uri: Uri,
+        context: Context,
+        projection: Array<String>,
+        selection: String?,
+        selectionArgs: Array<String>?,
+        sortOrder: String?,
+        numberToGet: Long?
+    ): Cursor? {
+        if (numberToGet != null && sortOrder != null && uri !in limitUnsupported) {
+            try {
+                return context.contentResolver.query(uri, projection, selection, selectionArgs, "$sortOrder LIMIT $numberToGet")
+            } catch (e: SQLiteException) {
+                Log.w("SMSHelper", "$uri does not take a LIMIT, querying without one", e)
+            } catch (e: IllegalArgumentException) {
+                Log.w("SMSHelper", "$uri does not take a LIMIT, querying without one", e)
+            }
+            limitUnsupported.add(uri)
+        }
+        return context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)
     }
 
     /**
