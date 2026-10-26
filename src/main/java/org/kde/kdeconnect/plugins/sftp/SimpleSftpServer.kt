@@ -6,9 +6,12 @@
  */
 package org.kde.kdeconnect.plugins.sftp
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import org.apache.sshd.common.keyprovider.AbstractKeyPairProvider
 import org.apache.sshd.common.session.SessionContext
@@ -45,7 +48,25 @@ import java.nio.file.attribute.FileAttribute
 import java.security.KeyPair
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
+import java.security.Provider
 import java.security.PublicKey
+import java.security.Security
+
+/**
+ * Android 7.1 and older have no AlgorithmParameters for "EC", but sshd's ECCurves needs it in its static initializer
+ * (to sort the curves by key size), so without it starting the server throws ExceptionInInitializerError ("No EC params
+ * for nistp384"). This exposes only BouncyCastle's (already bundled) implementation of it, as the last provider, so
+ * nothing that already worked changes which provider it uses.
+ */
+private class EcParametersProvider : Provider(NAME, 1.0, "EC AlgorithmParameters for Android < 8") {
+    init {
+        put("AlgorithmParameters.EC", "org.bouncycastle.jcajce.provider.asymmetric.ec.AlgorithmParametersSpi")
+    }
+
+    companion object {
+        const val NAME = "KdeConnectEcParameters"
+    }
+}
 
 internal class SimpleSftpServer {
     private lateinit var sshd: SshServer
@@ -74,6 +95,10 @@ internal class SimpleSftpServer {
     val isInitialized: Boolean
         get() = ::sshd.isInitialized
 
+    /** Whether the running server exposes the native file system (true) or the SAF storage locations (false). */
+    var isNativeFs: Boolean = false
+        private set
+
     private lateinit var safFileSystemFactory: SafFileSystemFactory
     private lateinit var nativeFileSystemFactory: NativeStorageFileSystemFactory
 
@@ -85,10 +110,11 @@ internal class SimpleSftpServer {
         nativeFileSystemFactory.storageDirs = paths
     }
 
-    fun initialize(context: Context, device: Device) {
+    fun initialize(context: Context, device: Device, nativeFs: Boolean = usesNativeFs(context)) {
+        isNativeFs = nativeFs
         val sshd = ServerBuilder.builder().apply {
             fileSystemFactory(
-                if (SUPPORTS_NATIVEFS) {
+                if (nativeFs) {
                     nativeFileSystemFactory = NativeStorageFileSystemFactory()
                     nativeFileSystemFactory
                 } else {
@@ -267,11 +293,28 @@ internal class SimpleSftpServer {
 
         val SUPPORTS_NATIVEFS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
 
+        /**
+         * Up to Android 9 the storage permission alone gives full access to shared storage, so the native file
+         * system works there too, without making the user pick folders one by one. Android 10 is the only
+         * version where only SAF works (scoped storage, and no "all files access" yet).
+         */
+        val LEGACY_NATIVEFS = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+
+        fun hasLegacyStoragePermission(context: Context): Boolean =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+
+        /** Whether the server should expose the native file system instead of the SAF storage locations. */
+        fun usesNativeFs(context: Context): Boolean =
+            SUPPORTS_NATIVEFS || (LEGACY_NATIVEFS && hasLegacyStoragePermission(context))
+
         private val PORT_RANGE = 1739..1764
         const val USER: String = "kdeconnect"
 
         init {
             System.setProperty(SECURITY_PROVIDER_REGISTRARS, "") // disable BouncyCastle
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && Security.getProvider(EcParametersProvider.NAME) == null) {
+                Security.addProvider(EcParametersProvider())
+            }
             System.setProperty(
                 "org.apache.sshd.common.io.IoServiceFactoryFactory",
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {

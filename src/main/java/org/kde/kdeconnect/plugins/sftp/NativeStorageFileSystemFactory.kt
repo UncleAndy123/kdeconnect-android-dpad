@@ -5,7 +5,9 @@
  */
 package org.kde.kdeconnect.plugins.sftp
 
+import android.os.Build
 import org.apache.sshd.common.file.FileSystemFactory
+import org.apache.sshd.common.file.root.RootedFileSystem
 import org.apache.sshd.common.file.root.RootedFileSystemProvider
 import org.apache.sshd.common.session.SessionContext
 import java.io.IOException
@@ -35,8 +37,16 @@ class NativeStorageFileSystemFactory : FileSystemFactory {
 
     override fun getUserHomeDir(session: SessionContext?): Path? = null
 
-    override fun createFileSystem(session: SessionContext?): FileSystem =
-        Provider().newFileSystem(Path.of("/"), emptyMap<String, Any>())
+    override fun createFileSystem(session: SessionContext?): FileSystem {
+        val provider = Provider()
+        return try {
+            provider.newFileSystem(Path.of("/"), emptyMap<String, Any>())
+        } catch (e: IOException) {
+            // Android 7.1 and older use the desugared java.nio, whose toRealPath("/") (called by newFileSystem) requires
+            // read access to "/", which apps don't have. The registry newFileSystem adds it to is unused by us anyway.
+            RootedFileSystem(provider, Path.of("/"), emptyMap<String, Any>())
+        }
+    }
 
     private inner class Provider : RootedFileSystemProvider() {
 
@@ -53,6 +63,11 @@ class NativeStorageFileSystemFactory : FileSystemFactory {
             return path.fileSystem.getPath(storageDir.toString())
         }
 
+        // Android 7.1 and older use the desugared java.nio, which reports "dir/.." as both a directory and a symlink
+        // (an invalid file type), so clients like WinSCP can't navigate up. Resolving the ".." first avoids it.
+        private fun desugarSafe(path: Path): Path =
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) path.normalize() else path
+
         override fun checkAccess(path: Path, vararg modes: AccessMode) {
             try {
                 super.checkAccess(path, *modes)
@@ -66,7 +81,7 @@ class NativeStorageFileSystemFactory : FileSystemFactory {
             type: Class<A>,
             vararg options: LinkOption
         ): A = try {
-            super.readAttributes(path, type, *options)
+            super.readAttributes(desugarSafe(path), type, *options)
         } catch (e: IOException) {
             val validPath = firstStorageDirUnder(path) ?: throw e
             super.readAttributes(validPath, type, *options)
@@ -77,7 +92,7 @@ class NativeStorageFileSystemFactory : FileSystemFactory {
             attributes: String,
             vararg options: LinkOption
         ): Map<String, Any> = try {
-            super.readAttributes(path, attributes, *options)
+            super.readAttributes(desugarSafe(path), attributes, *options)
         } catch (e: IOException) {
             val validPath = firstStorageDirUnder(path) ?: throw e
             super.readAttributes(validPath, attributes, *options)
@@ -86,19 +101,27 @@ class NativeStorageFileSystemFactory : FileSystemFactory {
         override fun newDirectoryStream(
             dir: Path,
             filter: DirectoryStream.Filter<in Path>
-        ): DirectoryStream<Path> = try {
-            super.newDirectoryStream(dir, filter)
-        } catch (e: IOException) {
+        ): DirectoryStream<Path> {
             val depth = dir.toAbsolutePath().normalize().nameCount
             val children = storageDirsUnder(dir)
                 .map { it.getName(depth).toString() }
                 .distinct()
                 .map { dir.resolve(it) }
-            if (children.isEmpty()) throw e
-            object : DirectoryStream<Path> {
-                override fun iterator(): MutableIterator<Path> = children.filter(filter::accept).toMutableList().iterator()
-                override fun close() {}
+            val stream = try {
+                super.newDirectoryStream(dir, filter)
+            } catch (e: IOException) {
+                if (children.isEmpty()) throw e
+                return listStream(children.filter(filter::accept))
             }
+            if (children.isEmpty()) return stream
+            // The desugared java.nio of Android 7.1 and older lists a directory it can't read as empty instead of failing
+            val entries = stream.use { it.toList() }
+            return listStream(entries.ifEmpty { children.filter(filter::accept) })
+        }
+
+        private fun listStream(entries: List<Path>) = object : DirectoryStream<Path> {
+            override fun iterator(): MutableIterator<Path> = entries.toMutableList().iterator()
+            override fun close() {}
         }
     }
 }

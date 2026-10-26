@@ -22,6 +22,8 @@
 
 # SSHd requires mina, and mina uses reflection so some classes would get deleted
 -keep class org.apache.sshd.** {*;}
+# Instantiated by name through SimpleSftpServer's EcParametersProvider on Android < 8
+-keep class org.bouncycastle.jcajce.provider.asymmetric.ec.AlgorithmParametersSpi { <init>(); }
 -dontwarn org.apache.sshd.**
 
 # The android-smsmms library uses class casting and reflection internally.

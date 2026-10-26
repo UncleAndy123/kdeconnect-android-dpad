@@ -6,14 +6,17 @@
  */
 package org.kde.kdeconnect.plugins.sftp
 
+import android.Manifest
 import android.app.Activity
 import android.content.ContentResolver
 import android.content.SharedPreferences
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.storage.StorageManager
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import kotlinx.serialization.SerialName
@@ -26,10 +29,12 @@ import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory.LoadablePlugin
 import org.kde.kdeconnect.ui.AlertDialogFragment
 import org.kde.kdeconnect.ui.DeviceSettingsAlertDialogFragment
+import org.kde.kdeconnect.ui.PermissionsAlertDialogFragment
 import org.kde.kdeconnect.ui.PluginSettingsFragment
 import org.kde.kdeconnect.ui.StartActivityAlertDialogFragment
 import org.kde.kdeconnect_tp.BuildConfig
 import org.kde.kdeconnect_tp.R
+import java.io.File
 import java.nio.file.Path
 
 @LoadablePlugin
@@ -44,7 +49,7 @@ class SftpPlugin : Plugin(), OnSharedPreferenceChangeListener {
         return if (SimpleSftpServer.SUPPORTS_NATIVEFS) {
             Environment.isExternalStorageManager()
         } else {
-            SftpSettingsFragment.getStorageInfoList(context, this).isNotEmpty()
+            SimpleSftpServer.usesNativeFs(context) || SftpSettingsFragment.getStorageInfoList(context, this).isNotEmpty()
         }
     }
 
@@ -57,6 +62,14 @@ class SftpPlugin : Plugin(), OnSharedPreferenceChangeListener {
                 .setNegativeButton(R.string.cancel)
                 .setIntentAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                 .setIntentUrl("package:${BuildConfig.APPLICATION_ID}")
+                .setReloadPluginsOnResult(true)
+                .create()
+        } else if (SimpleSftpServer.LEGACY_NATIVEFS) {
+            // Up to Android 9 the storage permission is all it takes (storage locations stay as the alternative)
+            PermissionsAlertDialogFragment.Builder()
+                .setTitle(displayName)
+                .setMessage(R.string.sftp_storage_permission_explanation)
+                .setPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE))
                 .setReloadPluginsOnResult(true)
                 .create()
         } else {
@@ -94,19 +107,28 @@ class SftpPlugin : Plugin(), OnSharedPreferenceChangeListener {
             return true
         }
 
+        // The storage permission can be granted or revoked between requests (Android 9 and older)
+        val nativeFs = SimpleSftpServer.usesNativeFs(context)
+        if (server.isInitialized && !server.isClosed && server.isNativeFs != nativeFs) {
+            server.stop()
+        }
         if (!server.isInitialized || server.isClosed) {
-            server.initialize(context, device)
+            server.initialize(context, device, nativeFs)
         }
 
         val paths = mutableListOf<String>()
         val pathNames = mutableListOf<String>()
 
-        if (SimpleSftpServer.SUPPORTS_NATIVEFS) {
-            val storageManager = context.getSystemService<StorageManager>()!!
-            for (sv in storageManager.storageVolumes) {
-                val directory = sv.directory ?: continue
-                pathNames.add(sv.getDescription(context))
-                paths.add(directory.path)
+        if (nativeFs) {
+            if (SimpleSftpServer.SUPPORTS_NATIVEFS) {
+                val storageManager = context.getSystemService<StorageManager>()!!
+                for (sv in storageManager.storageVolumes) {
+                    val directory = sv.directory ?: continue
+                    pathNames.add(sv.getDescription(context))
+                    paths.add(directory.path)
+                }
+            } else {
+                addLegacyStorageVolumes(paths, pathNames)
             }
             if (paths.isEmpty()) {
                 device.sendPacket(NetworkPacket(PACKET_TYPE_SFTP).apply {
@@ -157,6 +179,27 @@ class SftpPlugin : Plugin(), OnSharedPreferenceChangeListener {
         })
 
         return true
+    }
+
+    /**
+     * Android 9 and older: StorageVolume.getDirectory() doesn't exist yet, but every mounted volume (internal
+     * storage, SD card) has an app-specific dir at <volume root>/Android/data/<package>/files, from which we
+     * get the root with public APIs only.
+     */
+    private fun addLegacyStorageVolumes(paths: MutableList<String>, pathNames: MutableList<String>) {
+        val storageManager = context.getSystemService<StorageManager>()
+        for (appDir in ContextCompat.getExternalFilesDirs(context, null)) {
+            if (appDir == null || Environment.getExternalStorageState(appDir) != Environment.MEDIA_MOUNTED) continue
+            val root = appDir.path.substringBefore("/Android/data/", "")
+            if (root.isEmpty() || root in paths) continue
+            val name = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                storageManager?.getStorageVolume(appDir)?.getDescription(context)
+            } else {
+                null
+            }
+            paths.add(root)
+            pathNames.add(name ?: File(root).name)
+        }
     }
 
     private fun getPathsAndNamesForStorageInfoList(
