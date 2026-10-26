@@ -10,6 +10,9 @@ import android.os.Bundle
 import android.view.WindowManager
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.base.BaseActivity
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
+import org.kde.kdeconnect.ui.keypad.SoftKey
+import org.kde.kdeconnect_tp.R
 import org.kde.kdeconnect_tp.databinding.ActivityFindMyPhoneBinding
 
 class FindMyPhoneActivity : BaseActivity<ActivityFindMyPhoneBinding>() {
@@ -44,6 +47,13 @@ class FindMyPhoneActivity : BaseActivity<ActivityFindMyPhoneBinding>() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         binding.bFindMyPhone.setOnClickListener { finish() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Keypad: "Found it" on the right soft key (the toolbar and its back arrow hide), and the screen opens on it
+        KeypadSoftkeys.bind(this, null, SoftKey(getString(R.string.findmyphone_found)) { finish() })
+        binding.bFindMyPhone.requestFocus()
     }
 
     override fun onStart() {

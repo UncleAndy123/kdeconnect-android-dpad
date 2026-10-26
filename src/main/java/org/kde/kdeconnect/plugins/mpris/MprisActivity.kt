@@ -9,9 +9,11 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
+import android.view.ViewGroup
 import androidx.annotation.StringRes
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.tabs.TabLayoutMediator
 import org.kde.kdeconnect.base.BaseActivity
 import org.kde.kdeconnect.extensions.viewBinding
@@ -57,6 +59,11 @@ class MprisActivity : BaseActivity<ActivityMprisBinding>() {
 
         mprisPagerAdapter = MprisPagerAdapter(this, deviceId)
         binding.mprisPager.adapter = mprisPagerAdapter
+        // ViewPager2's inner RecyclerView takes D-pad focus itself and never hands it to the page's controls
+        (binding.mprisPager.getChildAt(0) as? RecyclerView)?.apply {
+            isFocusable = false
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        }
 
         val tabLayoutMediator = TabLayoutMediator(
             binding.mprisTabs, binding.mprisPager

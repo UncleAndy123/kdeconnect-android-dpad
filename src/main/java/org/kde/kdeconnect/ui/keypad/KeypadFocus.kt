@@ -270,11 +270,17 @@ internal class ViewFocusRing(private val activity: Activity) : ViewTreeObserver.
                 ring.cornerRadius = (h - 2 * inset) / 2f
             }
             target is CompoundButton -> { // checkbox / radio: hug the button graphic
-                val size = (32 * density).toInt().coerceAtMost(minOf(w, h))
-                val left = target.paddingLeft.coerceAtMost(w - size).coerceAtLeast(0)
-                val top = (h - size) / 2
-                ring.setBounds(left, top, left + size, top + size)
-                ring.cornerRadius = 6 * density
+                // Its drawable's bounds once drawn (a text-less radio is wider than its circle), else 32dp at the start
+                val drawn = target.buttonDrawable?.bounds
+                if (drawn != null && !drawn.isEmpty) {
+                    ring.bounds = android.graphics.Rect(drawn)
+                } else {
+                    val size = (32 * density).toInt().coerceAtMost(minOf(w, h))
+                    val left = target.paddingLeft.coerceAtMost(w - size).coerceAtLeast(0)
+                    val top = (h - size) / 2
+                    ring.setBounds(left, top, left + size, top + size)
+                }
+                ring.cornerRadius = if (target is android.widget.RadioButton) ring.bounds.width() / 2f else 6 * density
             }
             target is MaterialButton -> {
                 ring.setBounds(0, target.insetTop, w, h - target.insetBottom)
@@ -297,5 +303,11 @@ internal class ViewFocusRing(private val activity: Activity) : ViewTreeObserver.
         activity.window?.decorView?.viewTreeObserver?.addOnGlobalFocusChangeListener(this)
         // Ring whatever already has focus (the framework focuses the first focusable view on open)
         activity.currentFocus?.let { onGlobalFocusChanged(null, it) }
+        // Focus given before the window is attached (e.g. requestFocus() in onResume on first open) fires no focus
+        // event, so check again once attached
+        activity.window?.decorView?.post {
+            val current = activity.currentFocus
+            if (current != null && current !== focused) onGlobalFocusChanged(null, current)
+        }
     }
 }

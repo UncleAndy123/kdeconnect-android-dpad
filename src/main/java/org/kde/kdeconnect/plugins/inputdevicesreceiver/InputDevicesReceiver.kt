@@ -6,6 +6,8 @@
 package org.kde.kdeconnect.plugins.inputdevicesreceiver
 
 import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.Display
 import org.kde.kdeconnect.NetworkPacket
@@ -44,7 +46,9 @@ class InputDevicesReceiverPlugin : Plugin() {
         // if the display rotates while we have the cursor.
         displayManager = context.getSystemService(DisplayManager::class.java)
         resolveDisplaySize()
-        displayManager.registerDisplayListener(displayListener, null)
+        // Plugins load on a background thread without a Looper; a null Handler uses the calling thread's
+        // Looper, which crashes on Android 7 (NullPointerException in Handler.<init>), so use the main one
+        displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
     }
 
     override fun onDestroy() {

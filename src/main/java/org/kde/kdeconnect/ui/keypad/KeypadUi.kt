@@ -23,6 +23,7 @@ import android.view.InputDevice
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.view.Window
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -39,6 +40,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.activity.compose.LocalActivity
 import androidx.appcompat.app.AppCompatActivity
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.widget.PopupMenu
 import androidx.compose.runtime.Composable
@@ -118,6 +120,7 @@ object KeypadSoftkeys {
     private val bindings = WeakHashMap<Activity, Binding>()
     private val suspendedForModal = WeakHashMap<Activity, Boolean>()
     private val hiddenActionBars = WeakHashMap<Activity, Boolean>()
+    private val drawerInsets = WeakHashMap<Activity, Int>()
     private val focusRings = WeakHashMap<Activity, ViewFocusRing>()
     private var menuOpen = false
     private var lastDark: Boolean? = null
@@ -208,7 +211,23 @@ object KeypadSoftkeys {
                 binding.right?.let { k -> right(k.label) { k.onPress() } }
             }
         }
+        insetDrawerContent(activity, isActive && binding != null && suspendedForModal[activity] != true)
         updateActionBar(activity)
+    }
+
+    /**
+     * Yapchik makes room for the bar by padding the content root, but a DrawerLayout root ignores its
+     * own padding, so the screens in it (device list, device, settings) would scroll their last rows
+     * under the bar. Pad the drawer's main view instead.
+     */
+    private fun insetDrawerContent(activity: Activity, barShown: Boolean) {
+        val drawer = activity.findViewById<ViewGroup>(android.R.id.content)?.getChildAt(0) as? DrawerLayout ?: return
+        val main = drawer.getChildAt(0) ?: return
+        val want = if (barShown) Yapchik.barHeightPx(activity) else 0
+        val had = drawerInsets[activity] ?: 0
+        if (want == had) return
+        main.setPadding(main.paddingLeft, main.paddingTop, main.paddingRight, main.paddingBottom - had + want)
+        drawerInsets[activity] = want
     }
 
     private fun applyThemeColors(activity: Activity) {
