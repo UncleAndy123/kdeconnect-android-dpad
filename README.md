@@ -9,14 +9,14 @@ The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpa
 
 Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed.
 
-**Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`cadence-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-cadence/master/cadence-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
+**Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`cadence-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-dpad/master/cadence-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
 
 ```
 adb push cadence-phone-setup.sh /data/local/tmp/
 adb shell sh /data/local/tmp/cadence-phone-setup.sh
 ```
 
-It keeps any other app's accessibility service and notification listener, and is safe to run again. It also compiles the app ahead of time, which makes it noticeably faster on a slow phone; an app update undoes that, so run the two commands again after updating. Updates and reboots keep everything it sets, but on Android 7 using **Force stop** on KDE Connect turns its accessibility service off (remote keyboard and mouse stop working), so run the two commands again after that.
+It keeps any other app's accessibility service and notification listener, and is safe to run again. It also compiles the app ahead of time, which makes it noticeably faster on a slow phone; an app update undoes that, so run the two commands again after updating. Updates and reboots keep everything it sets, but on Android 7 using **Force stop** on KDE Connect turns its accessibility service off (remote keyboard and mouse stop working), so run the two commands again after that. Clearing KDE Connect's data also takes back every permission it granted, so run them again after that too. Contacts are only shared after you say yes once on the phone: on the device screen, open **Contacts** under the plugins that need permissions and accept.
 
 <table align="center">
   <tr><td align="center"><img src="screenshots/keypad/01-device-list.png" width="160" alt="Device list"><br><sub>1. Device list</sub></td><td align="center"><img src="screenshots/keypad/02-list-options.png" width="160" alt="Options menu"><br><sub>2. Options menu</sub></td><td align="center"><img src="screenshots/keypad/03-device.png" width="160" alt="Device"><br><sub>3. Device</sub></td></tr>
@@ -44,21 +44,27 @@ It keeps any other app's accessibility service and notification listener, and is
 
 ## Speed on slow phones
 
-Measured on a slow Android 7.1 emulator (no hardware acceleration) holding 6,204 SMS in 82 conversations and 31 contacts, timing what the desktop asks for right after it connects:
+Measured on an Android 7.1 emulator without hardware acceleration (a slow phone) holding 6,204 SMS in 82 conversations and 31 contacts. "Before" is the same app on upstream KDE Connect's code.
 
 | | Before | Now |
 |---|---|---|
 | Whole conversation list sent to the desktop | 36.3 s | **10.2 s** |
-| Contacts (vCards) sent | 11.8 s | **4.2 s** |
-| An SMS sent from the desktop shows up as sent | 4.7 s | **1–3.7 s** |
+| Contacts (vCards) sent to the desktop | 11.8 s | **4.2 s** |
 | A text arrives: the desktop shows its notification | 3.6–7.2 s | **0.9–1.8 s** |
+| A text sent from the desktop shows as sent | 4.7 s | **1–3.7 s** |
+| Open a 3,000-message conversation (newest 50) | 0.7 s | **0.5 s** |
+| Run command screen opens | 6.1 s | **2.6 s** |
+| Share screen opens | 5.5 s | **3.4 s** |
+| Drawing tablet screen opens | 3.3 s | **1.8 s** |
 | App size (release APK) | 7.4 MB | **6.1 MB** |
+| Album art in memory, per cover (240×320 screen) | 1024 px, ~4 MB | **320 px, ~0.4 MB** |
 
-Contacts no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation.
+The release build starts cold in 2.2–2.9 s, uses 36 MB of memory, and uses about 40 ms of CPU per minute while connected and idle.
 
-A text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup.
-
-Album art is decoded only as big as the screen (320 px on a 240x320 phone instead of 1024 px: a tenth of the memory per cover) and loaded with plain Android code instead of two image/network libraries. Every screen is plain Android views: Jetpack Compose is gone, so the app is smaller and its screens load less code. App start builds the plugin list off the UI thread. Notifications are built off the UI thread, and MMS photo thumbnails are decoded at thumbnail size instead of full resolution. Opening a 3,000-message conversation on the desktop takes 0.5 s for the newest 50 messages. New texts keep reaching the computer after Android kills the app in the background; Find my phone prepares its ringtone only when it rings; network discovery runs for a minute after each network change or Refresh instead of all the time.
+- **Texts:** a text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation. New texts keep reaching the computer after Android kills the app in the background.
+- **Contacts** no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time.
+- **Lighter app:** every screen is plain Android views (Jetpack Compose is gone), and album art is loaded with plain Android code instead of two image and network libraries, decoded only as big as the screen.
+- **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, and network discovery runs for a minute after each network change or Refresh instead of all the time.
 
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 

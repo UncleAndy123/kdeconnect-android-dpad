@@ -21,12 +21,19 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **Remote mouse: drag and drop.** On Android 7, holding the mouse button used to do only a long-press. You can now drag. Because of an Android 7 limit, the drag plays out on the phone when you let go of the button, not live while you move.
 - **Receiving files.** Files sent from the computer keep their original "last modified" date on Android 7, as they already did on newer Android.
 
-## Faster on slow phones
-- **SMS conversation list about 3x faster.** The newest message of every conversation comes from one newest-first pass over the SMS and MMS tables (stopping once every conversation is found, at most 3000 messages; any conversation not reached is then asked for directly) instead of two queries per conversation.
+## Faster and lighter on slow phones
+- **Text notifications reach the desktop right away.** On a slow phone the SMS app posts its notification seconds after a text arrives. The notification is now sent to the desktop straight from the incoming SMS, with the SMS app's name and icon and the contact's name, following the app filter, privacy and screen-off settings. When the SMS app's own notification arrives it updates that same desktop notification silently (adding Reply and its actions); another text from the same contact updates it too; if the SMS app never posts one, the early notification is taken back after 60 s.
+- **SMS conversation list about 3.5x faster.** The newest message of every conversation comes from one newest-first pass over the SMS and MMS tables (stopping once every conversation is found, at most 3000 messages; any conversation not reached is then asked for directly) instead of two queries per conversation.
 - **Fewer database round trips.** Each query asks the phone's message database for only the rows it needs (LIMIT; if a phone refuses it, the query runs as before), the "does this phone have a SIM-ID column" check runs once instead of before every query, and the phone's own numbers are only looked up when an MMS needs them.
+- **New texts keep reaching the computer after Android kills the app.** Whether the computer asked for messages is remembered, so a restarted app keeps pushing new texts.
+- **Contacts about 2.8x faster, and they don't block anything else.** They used to be read on the connection's only reading thread, so while the computer synced contacts nothing else it sent (an SMS to send, a conversation to load) was even read. Now they are read in the background, built from one query of the contacts database instead of one vCard request per contact, and sent 50 at a time so the computer gets the first ones straight away. A contact the phone can't turn into a vCard no longer drops the others.
+- **No Jetpack Compose.** Every screen is plain Android views, with the same look and keys. The app is smaller (7.4 MB to 6.1 MB with the change below) and its screens load less code: Run command opens in 2.6 s instead of 6.1 s on a slow emulator, Share in 3.4 s instead of 5.5 s.
+- **Album art at screen size, without two libraries.** Album art is loaded with plain Android code instead of the Coil and OkHttp libraries, and decoded only as big as the screen (320 px on a 240×320 phone instead of 1024 px: a tenth of the memory per cover). Downloads still happen only on unmetered networks.
 - **Notifications are built off the UI thread.** Decoding each app icon, PNG-encoding and hashing it and looking up the app name ran on the main thread for every notification; it now runs, in order, on a worker thread.
 - **MMS photo thumbnails are decoded at thumbnail size.** A camera photo was decoded at full resolution (tens of MB of bitmap) just to make a 100 px thumbnail.
-- **Contacts don't block anything else.** They used to be read on the connection's only reading thread, so while the computer synced contacts nothing else it sent (an SMS to send, a conversation to load) was even read. Now they are read in the background, with one timestamp query instead of one per contact, and sent 50 at a time so the computer gets the first ones straight away.
+- **App start doesn't build the plugin list on the UI thread.**
+- **Find my phone** prepares its ringtone only when the phone is rung, instead of holding a media player for the whole connection.
+- **Network discovery** (mDNS) runs for a minute after each network change or Refresh instead of all the time.
 
 ## Keypad-only phones (e.g. Kyocera Cadence S2720)
 Everything below switches on automatically on phones with no touchscreen (or a real D-pad). Touch phones look and work exactly like upstream.
@@ -69,6 +76,7 @@ Everything below switches on automatically on phones with no touchscreen (or a r
 
 ## Builds
 - Every push that changes the app builds release APKs for **arm64-v8a** and **armeabi-v7a** and publishes them as a GitHub release (a pre-release on branches other than the default).
+- Each build has its own version, 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 - Add `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` secrets to sign with your own key. Without them, builds are signed with the repo's debug key.
 
 ## Known limits on Android 7.1.1
