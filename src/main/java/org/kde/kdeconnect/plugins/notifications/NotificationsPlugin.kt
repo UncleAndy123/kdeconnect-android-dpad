@@ -5,13 +5,16 @@
  */
 package org.kde.kdeconnect.plugins.notifications
 
+import android.Manifest
 import android.app.Activity
 import android.app.KeyguardManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.RemoteInput
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -23,10 +26,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
+import android.provider.Telephony
+import android.telephony.PhoneNumberUtils
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.fragment.app.DialogFragment
 import kotlinx.serialization.json.JsonArray
@@ -36,6 +42,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.put
 import org.kde.kdeconnect.NetworkPacket
 import org.kde.kdeconnect.helpers.AppsHelper.appNameLookup
+import org.kde.kdeconnect.helpers.ContactsHelper
 import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory.LoadablePlugin
 import org.kde.kdeconnect.ui.PluginSettingsFragment
@@ -64,6 +71,30 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
     private lateinit var workHandler: Handler
     private val postedNotificationsLock = Any()
 
+    // Early SMS notifications. On a slow phone the SMS app takes seconds after an SMS arrives to post its
+    // notification; the SMS itself (SMS_RECEIVED) reaches us right away. So the desktop gets the notification
+    // straight from the SMS, and when the SMS app's own notification arrives it updates that same desktop
+    // notification silently (adding Reply and the app's actions) instead of popping a second one.
+    private class EarlySms(val id: String, val sender: String, val name: String?, val body: String)
+    private val earlySms = java.util.concurrent.CopyOnWriteArrayList<EarlySms>()
+    private val aliasByKey = ConcurrentHashMap<String, String>() // SMS app notification key -> early id
+    private val keyByAlias = ConcurrentHashMap<String, String>() // early id -> SMS app notification key
+    private var smsReceiverRegistered = false
+    private val smsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context, intent: Intent) {
+            val messages = try {
+                Telephony.Sms.Intents.getMessagesFromIntent(intent)
+            } catch (e: Exception) {
+                null
+            }
+            if (messages.isNullOrEmpty()) return
+            val sender = messages[0].originatingAddress ?: return
+            val body = messages.joinToString("") { it.messageBody ?: "" }
+            val time = System.currentTimeMillis()
+            workHandler.post { sendEarlySms(sender, body, time) }
+        }
+    }
+
     override val displayName: String
         get() = context.getString(R.string.pref_plugin_notifications)
 
@@ -89,9 +120,112 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             service.addListener(this@NotificationsPlugin)
             serviceReady = service.isConnected
         }
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED) {
+            // Only the system can send SMS_RECEIVED (protected broadcast, and BROADCAST_SMS is required of the sender)
+            ContextCompat.registerReceiver(context, smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION),
+                Manifest.permission.BROADCAST_SMS, workHandler, ContextCompat.RECEIVER_EXPORTED)
+            smsReceiverRegistered = true
+        }
+    }
+
+    private fun takeEarly(id: String): Boolean = earlySms.firstOrNull { it.id == id }?.let { earlySms.remove(it) } ?: false
+
+    /** The desktop notification for an SMS that just arrived, before the SMS app has posted its own. */
+    private fun sendEarlySms(sender: String, body: String, time: Long) {
+        val smsApp = Telephony.Sms.getDefaultSmsPackage(context) ?: return
+        if (!appDatabase.isEnabled(smsApp)) return
+        val sendOnlyIfLocked = preferences.getBoolean(context.getString(R.string.pref_notification_screen_off_key), false)
+        if (sendOnlyIfLocked && !keyguardManager.isKeyguardLocked) return
+
+        val name = if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            ContactsHelper.phoneNumberLookup(context, sender).name
+        } else {
+            null
+        }
+        val id = "kdeconnect.sms|$sender|$time"
+        earlySms.add(EarlySms(id, sender, name, body))
+
+        val np = NetworkPacket(PACKET_TYPE_NOTIFICATION)
+        np["id"] = id
+        np["isClearable"] = true
+        np["appName"] = appNameLookup(context, smsApp)
+        np["time"] = time.toString()
+        np["silent"] = false
+        if (!appDatabase.getPrivacy(smsApp, AppDatabase.PrivacyOptions.BLOCK_IMAGES)) {
+            val icon = try {
+                drawableToBitmap(context.packageManager.getApplicationIcon(smsApp))
+            } catch (e: PackageManager.NameNotFoundException) {
+                null
+            }
+            if (icon != null) {
+                val iconBytes = getIconBytes(icon)
+                val iconHash = getIconHash(iconBytes)
+                np.payload = NetworkPacket.Payload(iconBytes)
+                np["payloadHash"] = iconHash
+                notificationsIcons[id] = iconHash
+            }
+        }
+        if (!appDatabase.getPrivacy(smsApp, AppDatabase.PrivacyOptions.BLOCK_CONTENTS)) {
+            val title = name ?: sender
+            np["title"] = title
+            np["text"] = body
+            np["ticker"] = "$title: $body"
+        }
+        device.sendPacket(np)
+
+        // The SMS app never posted one (e.g. that conversation is open on the phone, or muted): take it back
+        workHandler.postDelayed({
+            if (takeEarly(id)) {
+                notificationsIcons.remove(id)
+                device.sendPacket(NetworkPacket(PACKET_TYPE_NOTIFICATION).apply {
+                    this["id"] = id
+                    this["isCancel"] = true
+                })
+            }
+        }, EARLY_SMS_CLAIM_MS)
+    }
+
+    /**
+     * The id the desktop knows the SMS app's notification [key] by: the early SMS notification it updates, if it
+     * matches one (same contact, or it shows the same text). Second element: an early notification was used up now.
+     */
+    private fun desktopIdFor(packageName: String, key: String, notification: Notification): Pair<String, Boolean> {
+        val known = aliasByKey[key]
+        if (earlySms.isEmpty() || packageName != Telephony.Sms.getDefaultSmsPackage(context)) return (known ?: key) to false
+        val title = extractStringFromExtra(notification.extras, NotificationCompat.EXTRA_TITLE)
+        val text = extractText(notification)
+        val matches = earlySms.filter { e ->
+            (title != null && (title == e.name || PhoneNumberUtils.compare(title, e.sender))) ||
+                (text != null && e.body.isNotEmpty() && text.contains(e.body))
+        }
+        if (matches.isEmpty()) return (known ?: key) to false
+        earlySms.removeAll(matches.toSet())
+        val alias = known ?: matches.first().id
+        aliasByKey[key] = alias
+        keyByAlias[alias] = key
+        // More SMS from that contact before the app caught up: their early notifications fold into this one
+        for (extra in matches) {
+            if (extra.id == alias) continue
+            notificationsIcons.remove(extra.id)
+            device.sendPacket(NetworkPacket(PACKET_TYPE_NOTIFICATION).apply {
+                this["id"] = extra.id
+                this["isCancel"] = true
+            })
+        }
+        return alias to true
     }
 
     override fun onDestroy() {
+        if (smsReceiverRegistered) {
+            try {
+                context.unregisterReceiver(smsReceiver)
+            } catch (_: IllegalArgumentException) {
+            }
+            smsReceiverRegistered = false
+        }
+        earlySms.clear()
+        aliasByKey.clear()
+        keyByAlias.clear()
         currentNotifications.clear()
         notificationsIcons.clear()
         pendingIntents.clear()
@@ -133,7 +267,9 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
             }
 
             val np = NetworkPacket(PACKET_TYPE_NOTIFICATION)
-            np["id"] = id
+            val desktopId = aliasByKey.remove(id) ?: id
+            keyByAlias.remove(desktopId)
+            np["id"] = desktopId
             np["isCancel"] = true
             device.sendPacket(np)
             currentNotifications.remove(id)
@@ -263,11 +399,13 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
         np["actions"] = extractActions(notification, key)
 
         val onlyAlertOnce = (notification.flags and Notification.FLAG_ONLY_ALERT_ONCE) != 0
-        np["id"] = key
+        val (desktopId, replacesEarly) = desktopIdFor(packageName, key, notification)
+        np["id"] = desktopId
         np["isClearable"] = statusBarNotification.isClearable
         np["appName"] = appNameLookup(context, packageName)
         np["time"] = statusBarNotification.postTime.toString()
-        np["silent"] = isPreexisting || (isUpdate && onlyAlertOnce)
+        // Replacing an early SMS notification: the desktop already alerted for it
+        np["silent"] = isPreexisting || replacesEarly || (isUpdate && onlyAlertOnce)
 
         if (!appDatabase.getPrivacy(packageName, AppDatabase.PrivacyOptions.BLOCK_CONTENTS)) {
             val rn = extractRepliableNotification(statusBarNotification)
@@ -513,7 +651,7 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
 
     override fun onPacketReceived(np: NetworkPacket): Boolean {
         if (np.type == PACKET_TYPE_NOTIFICATION_ACTION) {
-            val key = np.getString("key")
+            val key = np.getString("key").let { keyByAlias[it] ?: it }
             val title = np.getString("action")
             val intent = pendingActions[key]?.firstOrNull { it.title?.contentEquals(title) == true }?.actionIntent
 
@@ -531,7 +669,10 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
                 }
             }
         } else if (np.has("cancel")) {
-            val dismissedId = np.getString("cancel")
+            val desktopId = np.getString("cancel")
+            if (takeEarly(desktopId)) return true // only ever on the desktop
+            val dismissedId = keyByAlias.remove(desktopId) ?: desktopId
+            aliasByKey.remove(dismissedId)
             currentNotifications.remove(dismissedId)
             NotificationReceiver.RunCommand(context) { service ->
                 try {
@@ -572,6 +713,8 @@ class NotificationsPlugin : Plugin(), NotificationReceiver.NotificationListener 
         private const val PACKET_TYPE_NOTIFICATION_REPLY = "kdeconnect.notification.reply"
         private const val PACKET_TYPE_NOTIFICATION_ACTION = "kdeconnect.notification.action"
         private const val NOTIFICATION_SYNC_DELAY_MS = 50L
+        // How long an early SMS notification waits for the SMS app's own one before it is taken back
+        private const val EARLY_SMS_CLAIM_MS = 60_000L
 
         private const val TAG = "KDE/NotificationsPlugin"
 
