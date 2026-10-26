@@ -88,6 +88,7 @@ class RunCommandActivity : KdeActivity() {
             subtitle = device.name
         }
         binding.addCommand.setOnClickListener { addCommand() }
+        ViewBuilders.unfocusableScroll(binding.scroll)
         plugin.addCommandsUpdatedCallback(commandsChanged)
         plugin.addOutputListener(outputChanged)
         updateList()

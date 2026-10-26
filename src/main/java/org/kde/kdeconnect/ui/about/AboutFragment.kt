@@ -55,7 +55,7 @@ class AboutFragment : Fragment() {
         column.addView(appInfoCard(ctx), lp(0))
         column.addView(actionButtons(ctx), lp())
         column.addView(authorsCard(ctx), lp())
-        return NestedScrollView(ctx).apply { addView(column) }
+        return NestedScrollView(ctx).apply { addView(column); ViewBuilders.unfocusableScroll(this) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

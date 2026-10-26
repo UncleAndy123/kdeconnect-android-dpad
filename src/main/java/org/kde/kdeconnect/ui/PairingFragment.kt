@@ -101,6 +101,7 @@ class PairingFragment : BaseFragment<PairingListBinding>() {
         mActivity?.addMenuProvider(menuProvider, viewLifecycleOwner, Lifecycle.State.RESUMED)
 
         binding.refresh.setOnRefreshListener { viewModel.onRefresh() }
+        org.kde.kdeconnect.ui.views.ViewBuilders.unfocusableScroll(binding.scroll)
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.pairingUiState.collect { render(it) }

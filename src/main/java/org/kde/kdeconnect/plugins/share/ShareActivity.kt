@@ -170,6 +170,7 @@ class ShareActivity : BaseActivity<ActivityShareBinding>() {
         }
 
         binding.devicesListLayout.refresh.setOnRefreshListener { refreshDevicesAction() }
+        ViewBuilders.unfocusableScroll(binding.devicesListLayout.scroll)
     }
 
     override fun onStart() {

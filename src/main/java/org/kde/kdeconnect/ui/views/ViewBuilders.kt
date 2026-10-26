@@ -82,6 +82,16 @@ object ViewBuilders {
         }
     }
 
+    /**
+     * A scroll container that never takes focus itself (NestedScrollView makes itself focusable): on a keypad
+     * phone the first control inside gets it, not the whole page.
+     */
+    fun unfocusableScroll(view: View) {
+        view.isFocusable = false
+        view.isFocusableInTouchMode = false
+        (view as? android.view.ViewGroup)?.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
+    }
+
     fun sectionHeader(context: Context, title: String): View = text(context, title, MR.attr.textAppearanceTitleMedium).apply {
         setPadding(dp(context, 16), dp(context, 16), dp(context, 16), 0)
     }

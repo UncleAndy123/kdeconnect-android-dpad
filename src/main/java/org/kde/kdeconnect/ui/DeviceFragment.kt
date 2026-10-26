@@ -183,6 +183,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.deviceView.setupBottomPadding()
+        org.kde.kdeconnect.ui.views.ViewBuilders.unfocusableScroll(binding.deviceView)
         device?.apply {
             mActivity?.supportActionBar?.title = name
             removePairingCallback(pairingCallback)
