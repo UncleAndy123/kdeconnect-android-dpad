@@ -88,6 +88,9 @@ class CustomDevicesActivity : KdeActivity() {
             adapter = this@CustomDevicesActivity.adapter
             addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
             itemAnimator = null
+            // The rows are the focus stops; an empty list must not get the ring itself
+            isFocusable = false
+            descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
             clipToPadding = false
             setPadding(0, 0, 0, dp(context, 88))
         }
