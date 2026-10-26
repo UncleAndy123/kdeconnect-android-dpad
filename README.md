@@ -7,7 +7,16 @@ The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpa
 - **Focus:** an orange focus ring hugs the highlighted control, and every screen opens with something already highlighted.
 - **Space:** on-screen buttons the soft keys replace are removed to save room.
 
-Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed, and run `cadence-adb-setup.sh` once to grant permissions a keypad phone can't open on its own.
+Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed.
+
+**Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`cadence-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-cadence/master/cadence-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
+
+```
+adb push cadence-phone-setup.sh /data/local/tmp/
+adb shell sh /data/local/tmp/cadence-phone-setup.sh
+```
+
+It keeps any other app's accessibility service and notification listener, and is safe to run again after reinstalling.
 
 <table align="center">
   <tr><td align="center"><img src="screenshots/keypad/01-device-list.png" width="160" alt="Device list"><br><sub>1. Device list</sub></td><td align="center"><img src="screenshots/keypad/02-list-options.png" width="160" alt="Options menu"><br><sub>2. Options menu</sub></td><td align="center"><img src="screenshots/keypad/03-device.png" width="160" alt="Device"><br><sub>3. Device</sub></td></tr>

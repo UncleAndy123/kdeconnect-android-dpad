@@ -56,7 +56,7 @@ Everything below switches on automatically on phones with no touchscreen (or a r
   - \# switches to typing on the computer; Options gets you back
 - **T9 typing to the computer** works with multi-tap keyboards, and Backspace is passed through.
 - **Presentation remote:** OK toggles the pointer. The pointer button is hidden on phones without a gyroscope.
-- `cadence-adb-setup.sh` grants everything the app needs over USB, including the screens a keypad phone can't open: notification access, the accessibility service, battery exemption and permissions.
+- `cadence-phone-setup.sh` grants everything the app needs over USB, including the screens a keypad phone can't open: notification access, the accessibility service, battery exemption and permissions. It runs on the phone, so the two commands that start it work from Windows (Command Prompt or PowerShell), macOS and Linux alike, and it keeps other apps' accessibility services and notification listeners.
 
 ## Builds
 - Every push that changes the app builds release APKs for **arm64-v8a** and **armeabi-v7a** and publishes them as a GitHub release (a pre-release on branches other than the default).
