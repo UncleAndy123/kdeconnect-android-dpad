@@ -9,6 +9,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -109,10 +111,39 @@ class ConnectivityReportPluginTest {
     // REMOTE -> LOCAL
 
     @Test
-    fun testIgnoresReceivedPackets() {
-        assertFalse(plugin.onPacketReceived(NetworkPacket("kdeconnect.connectivity_report")))
-        assertFalse(plugin.onPacketReceived(NetworkPacket("some.other.type")))
+    fun testReceivesConnectivityReportPacket() {
+        val np = NetworkPacket("kdeconnect.connectivity_report").apply {
+            val signalStrengths =  buildJsonObject {
+                val sub1 = buildJsonObject {
+                    put("networkType", JsonPrimitive("5G"))
+                    put("signalStrength", JsonPrimitive(4))
+                }
+                val sub2 = buildJsonObject {
+                    put("networkType", JsonPrimitive("LTE"))
+                    put("signalStrength", JsonPrimitive(2))
+                }
+                put("1", sub1)
+                put("2", sub2)
+            }
+            set("signalStrengths", signalStrengths)
+        }
 
+        val handled = plugin.onPacketReceived(np)
+        org.junit.Assert.assertTrue(handled)
+
+        val info = plugin.remoteConnectivityInfo
+        assertEquals(2, info.size)
+        assertEquals("5G", info["1"]?.networkType)
+        assertEquals(4, info["1"]?.signalStrength)
+        assertEquals("LTE", info["2"]?.networkType)
+        assertEquals(2, info["2"]?.signalStrength)
+
+        verify(exactly = 1) { device.onPluginsChanged() }
+    }
+
+    @Test
+    fun testIgnoresOtherPacketTypes() {
+        assertFalse(plugin.onPacketReceived(NetworkPacket("some.other.type")))
         verify(exactly = 0) { device.onPluginsChanged() }
     }
 
