@@ -3,7 +3,7 @@
 A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no touchscreen at all**, like the Kyocera Cadence S2720 flip phone. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from a 240×320, 160 dpi emulator with no touchscreen, the same as the Cadence.
 
 The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
-- **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key.
+- **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key. The soft-key bar is [Yapchik](https://github.com/theOnionsAreWatching/yapchik) by theOnionsAreWatching.
 - **Focus:** an orange focus ring hugs the highlighted control, and every screen opens with something already highlighted.
 - **Space:** on-screen buttons the soft keys replace are removed to save room.
 
@@ -28,6 +28,12 @@ Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.
 10. **Plugin settings**: the ring hugs the toggle (Options → Plugin settings)
 11. **Settings**: soft-key switch and calibration (Options → Settings)
 12. **Share**: first device focused (share from any app)
+
+## Credits
+
+- **[Yapchik](https://github.com/theOnionsAreWatching/yapchik)** by theOnionsAreWatching: the soft-key engine. It finds the phone's soft keys and draws the on-screen soft-key bar with their labels. It is included as source in [`yapchik/`](yapchik/) under the GNU LGPL v3 or later (see [`yapchik/LICENSE`](yapchik/LICENSE) and [`yapchik/NOTICE`](yapchik/NOTICE)).
+- **[vela-dpad](https://github.com/alltechdev/vela-dpad)**: the keypad design this build copies (soft-key layout, focus rings, menus, dialogs).
+- **[KDE Connect](https://invent.kde.org/network/kdeconnect-android/)** by the KDE Community: the app itself (GPL v2 / v3).
 
 ---
 
