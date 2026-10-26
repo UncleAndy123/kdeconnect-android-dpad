@@ -14,6 +14,7 @@ import org.kde.kdeconnect.helpers.DeviceHelper
 import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory
 import org.kde.kdeconnect.ui.PluginSettingsFragment
+import org.kde.kdeconnect.ui.keypad.KeypadSoftkeys
 import org.kde.kdeconnect_tp.R
 
 @PluginFactory.LoadablePlugin
@@ -24,8 +25,9 @@ class DigitizerPlugin : Plugin() {
     override val description: String
         get() = context.resources.getString(R.string.pref_plugin_digitizer_desc)
 
+    // Keypad phones drive it with the keypad pen (see DrawingPadView), so it is on there too
     override val isEnabledByDefault: Boolean
-        get() = DeviceHelper.isTablet
+        get() = DeviceHelper.isTablet || KeypadSoftkeys.isKeypadDevice(context)
 
     override fun getUiButtons(): List<PluginUiButton> = listOf(
         PluginUiButton(
