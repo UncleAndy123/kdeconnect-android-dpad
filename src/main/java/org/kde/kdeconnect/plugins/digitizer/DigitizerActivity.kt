@@ -90,7 +90,9 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
             }
         }
 
-        fullscreenBackCallback = onBackPressedDispatcher.addCallback(this) {
+        // Only active while fullscreen (enableFullscreen turns it on); enabled from the start it
+        // swallowed the first Back, which then did nothing
+        fullscreenBackCallback = onBackPressedDispatcher.addCallback(this, enabled = false) {
             disableFullscreen()
         }
     }
@@ -109,7 +111,8 @@ class DigitizerActivity : BaseActivity<ActivityDigitizerBinding>(), DrawingPadVi
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
 
-        supportActionBar!!.show()
+        // On keypad phones the toolbar stays hidden: its actions are on the soft keys
+        if (!keypad) supportActionBar!!.show()
         windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
 
         fullscreenBackCallback.isEnabled = false
