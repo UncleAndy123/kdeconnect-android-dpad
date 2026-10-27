@@ -122,7 +122,30 @@ object KeypadSoftkeys {
      * (non-virtual) D-pad. `adb shell settings put global kdeconnect_force_dpad 1` forces it on
      * for testing on a touch phone or emulator.
      */
+    // isKeypadDevice is asked on every screen build, focus change and resume; working it out takes several system
+    // calls (package manager, input manager per input device, settings), so it is worked out once and kept until an
+    // input device is added, removed or changed
+    @Volatile private var keypadCache: Boolean? = null
+    private var inputListenerRegistered = false
+
     fun isKeypadDevice(context: Context): Boolean {
+        keypadCache?.let { return it }
+        val app = context.applicationContext ?: context
+        if (!inputListenerRegistered) {
+            inputListenerRegistered = true
+            runCatching {
+                app.getSystemService(android.hardware.input.InputManager::class.java)?.registerInputDeviceListener(
+                    object : android.hardware.input.InputManager.InputDeviceListener {
+                        override fun onInputDeviceAdded(deviceId: Int) { keypadCache = null }
+                        override fun onInputDeviceRemoved(deviceId: Int) { keypadCache = null }
+                        override fun onInputDeviceChanged(deviceId: Int) { keypadCache = null }
+                    }, android.os.Handler(android.os.Looper.getMainLooper()))
+            }
+        }
+        return computeKeypadDevice(app).also { keypadCache = it }
+    }
+
+    private fun computeKeypadDevice(context: Context): Boolean {
         val forced = runCatching {
             Settings.Global.getInt(context.contentResolver, "kdeconnect_force_dpad", 0) == 1
         }.getOrDefault(false)
@@ -341,6 +364,7 @@ object KeypadSoftkeys {
                 textSize = 16f
                 setPadding(dp(20), dp(12), dp(20), dp(12))
                 isFocusable = true
+                isFocusableInTouchMode = true // keypad phones start in touch mode until the first key press
                 isClickable = true
                 background = StateListDrawable().apply {
                     addState(intArrayOf(android.R.attr.state_focused), ring())
