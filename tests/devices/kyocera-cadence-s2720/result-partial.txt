@@ -1,3 +1,9 @@
-  COVERED  09 device-options
-  COVERED  10 plugin-settings
-RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (2 covered, 0 missed; phases: device)
+  COVERED  01 device-list
+  COVERED  02 list-options
+  COVERED  03 add-devices-by-ip
+  COVERED  04 add-device-dialog
+  COVERED  05 trusted-networks
+  COVERED  06 about
+  COVERED  07 not-paired
+  COVERED  08 device
+RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (8 covered, 0 missed; phases: firstrun)
