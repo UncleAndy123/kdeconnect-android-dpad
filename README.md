@@ -59,9 +59,20 @@ Measured on an Android 7.1 emulator without hardware acceleration (a slow phone)
 | App size (release APK) | 7.4 MB | **6.1 MB** |
 | Album art in memory, per cover (240×320 screen) | 1024 px, ~4 MB | **320 px, ~0.4 MB** |
 
-The release build starts cold in 2.2–2.9 s, uses 36 MB of memory, and uses about 40 ms of CPU per minute while connected and idle.
+The table above compares debug builds. The release build (what you install), on the same emulator:
 
-- **Texts:** a text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup. The conversation list is read in one newest-first pass over the message tables instead of two queries per conversation. New texts keep reaching the computer after Android kills the app in the background.
+| Release build | |
+|---|---|
+| Whole conversation list sent to the desktop | **2.2–3.2 s** |
+| Contacts (vCards) sent | **1.7 s** |
+| A text arrives: the desktop shows its notification | **0.9–2.7 s** |
+| Open a 3,000-message conversation (newest 50) | **0.2 s** |
+| Screens open (device list / Share / Run command / Presentation / Drawing tablet) | **2.7 / 2.7 / 3.0 / 2.1 / 1.2 s** |
+| Cold start | **2.2–2.9 s** |
+| Memory (PSS) | **36 MB** |
+| CPU while connected and idle | **~40 ms per minute** |
+
+- **Texts:** a text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup. The conversation list comes from the message database's own "newest message of every conversation" query (one query, computed with the database's indexes) instead of two queries per conversation, and goes to the desktop 10 conversations per packet after the first. New texts keep reaching the computer after Android kills the app in the background.
 - **Contacts** no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time.
 - **Lighter app:** every screen is plain Android views (Jetpack Compose is gone), and album art is loaded with plain Android code instead of two image and network libraries, decoded only as big as the screen.
 - **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, and network discovery runs for a minute after each network change or Refresh instead of all the time.

@@ -23,7 +23,7 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 
 ## Faster and lighter on slow phones
 - **Text notifications reach the desktop right away.** On a slow phone the SMS app posts its notification seconds after a text arrives. The notification is now sent to the desktop straight from the incoming SMS, with the SMS app's name and icon and the contact's name, following the app filter, privacy and screen-off settings. When the SMS app's own notification arrives it updates that same desktop notification silently (adding Reply and its actions); another text from the same contact updates it too; if the SMS app never posts one, the early notification is taken back after 60 s.
-- **SMS conversation list about 3.5x faster.** The newest message of every conversation comes from one newest-first pass over the SMS and MMS tables (stopping once every conversation is found, at most 3000 messages; any conversation not reached is then asked for directly) instead of two queries per conversation.
+- **SMS conversation list about 10x faster.** The newest message of every conversation comes from the message provider's own conversations query (content://mms-sms/conversations: one query, computed with the database's indexes, what Android's messaging app lists conversations with) instead of two queries per conversation. A conversation it doesn't give, or a phone whose provider doesn't answer it, falls back to one newest-first pass over the SMS and MMS tables and then to per-conversation queries. The list goes to the desktop 10 conversations per packet after the first, which still goes out on its own straight away.
 - **Fewer database round trips.** Each query asks the phone's message database for only the rows it needs (LIMIT; if a phone refuses it, the query runs as before), the "does this phone have a SIM-ID column" check runs once instead of before every query, and the phone's own numbers are only looked up when an MMS needs them.
 - **New texts keep reaching the computer after Android kills the app.** Whether the computer asked for messages is remembered, so a restarted app keeps pushing new texts.
 - **Contacts about 2.8x faster, and they don't block anything else.** They used to be read on the connection's only reading thread, so while the computer synced contacts nothing else it sent (an SMS to send, a conversation to load) was even read. Now they are read in the background, built from one query of the contacts database instead of one vCard request per contact, and sent 50 at a time so the computer gets the first ones straight away. A contact the phone can't turn into a vCard no longer drops the others.
@@ -32,6 +32,7 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **Notifications are built off the UI thread.** Decoding each app icon, PNG-encoding and hashing it and looking up the app name ran on the main thread for every notification; it now runs, in order, on a worker thread.
 - **MMS photo thumbnails are decoded at thumbnail size.** A camera photo was decoded at full resolution (tens of MB of bitmap) just to make a 100 px thumbnail.
 - **App start doesn't build the plugin list on the UI thread.**
+- **Remote keyboard and mouse turn on without reconnecting.** Their accessibility service being switched on (setup re-run after an update, say) now loads them for the connected computer straight away.
 - **Find my phone** prepares its ringtone only when the phone is rung, instead of holding a media player for the whole connection.
 - **Network discovery** (mDNS) runs for a minute after each network change or Refresh instead of all the time.
 
@@ -52,7 +53,7 @@ Everything below switches on automatically on phones with no touchscreen (or a r
   - The Options menu sits right on top of the bar and is only as wide as its longest entry.
   - Settings has a **Hardware soft keys** switch and **Calibrate soft keys**, for phones whose keys aren't recognised.
 - **Clear focus highlight.** The highlighted item gets Vela's orange outline. It hugs the control: a toggle's pill, a button's shape, a menu row.
-- **Every screen opens with something already highlighted.**
+- **Every screen opens with something already highlighted** (About opens on the app card).
 - **More room on tiny screens.** On 240×320 displays the app lays itself out as if the screen were wider, so things fit instead of being cut off. Text is a little smaller.
 - **Everything reachable with the D-pad:**
   - Plugin rows now let you open a plugin's settings or turn it on/off.
