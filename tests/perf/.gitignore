@@ -1,2 +1,6 @@
 __pycache__/
 seed.log
+results/
+*.log
+*.out
+*.trace

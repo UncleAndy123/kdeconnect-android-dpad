@@ -31,22 +31,9 @@ RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): FULLY COVERED (22/2
 Last partial run (only some phases; its frames replace those phases' frames below):
 
 ```
-  COVERED  01 device-list
-  COVERED  02 list-options
-  COVERED  03 add-devices-by-ip
-  COVERED  04 add-device-dialog
-  COVERED  05 trusted-networks
-  COVERED  06 about
-  COVERED  07 not-paired
-  COVERED  08 device
   COVERED  09 device-options
   COVERED  10 plugin-settings
-  COVERED  13 keypad-mouse
-  COVERED  14 mouse-options
-  COVERED  15 compose-text
-  COVERED  23 sms-settings
-  COVERED  24 sms-conversation-limit
-RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (15 covered, 0 missed; phases: firstrun device smssettings mouse)
+RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (2 covered, 0 missed; phases: device)
 ```
 
 ## screenshots/full

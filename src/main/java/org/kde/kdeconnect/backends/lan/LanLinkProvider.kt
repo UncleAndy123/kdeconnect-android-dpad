@@ -66,10 +66,11 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
 
     private val customDeviceListener = OnSharedPreferenceChangeListener { _, key ->
         if (key == CustomDevicesActivity.KEY_CUSTOM_DEVICE_LIST_PREFERENCE) {
-            updateCustomDevicesList()
+            ThreadHelper.execute { updateCustomDevicesList() }
         }
     }
 
+    // Resolves every "add device by IP" entry (a host name waits on DNS): never on the main thread
     fun updateCustomDevicesList() {
         customDeviceAddresses = CustomDevicesActivity.getCustomDeviceList(context).flatMap {
             runCatching {
@@ -578,20 +579,23 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         //Log.i("KDE/LanLinkProvider", "onStart");
         isStopped = false
 
-        updateCustomDevicesList()
         customDevicePreferences.registerOnSharedPreferenceChangeListener(customDeviceListener)
 
         setupUdpListener()
         setupTcpListener()
 
-        synchronized(mdnsDiscovery) {
-            mdnsDiscovery.startDiscovering()
-            if (TrustedNetworkHelper.isTrustedNetwork(context)) {
-                mdnsDiscovery.startAnnouncing()
+        // On a worker: the first mDNS call creates the NsdManager, which waits for the system's mDNS service
+        ThreadHelper.execute {
+            synchronized(mdnsDiscovery) {
+                if (isStopped) return@execute
+                mdnsDiscovery.startDiscovering()
+                if (TrustedNetworkHelper.isTrustedNetwork(context)) {
+                    mdnsDiscovery.startAnnouncing()
+                }
             }
         }
 
-        broadcastUdpIdentityPacket(null)
+        broadcastUdpIdentityPacket(null) // resolves the custom devices first, on its worker
     }
 
     override fun onNetworkChange(network: Network?) {
@@ -606,14 +610,17 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         setupTcpListener()
 
         broadcastUdpIdentityPacket(network)
-        synchronized(mdnsDiscovery) {
-            if (TrustedNetworkHelper.isTrustedNetwork(context)) {
-                mdnsDiscovery.startAnnouncing() // noop if already announcing
-            } else {
-                mdnsDiscovery.stopAnnouncing() // noop if already stopped
+        ThreadHelper.execute {
+            synchronized(mdnsDiscovery) {
+                if (isStopped) return@execute
+                if (TrustedNetworkHelper.isTrustedNetwork(context)) {
+                    mdnsDiscovery.startAnnouncing() // noop if already announcing
+                } else {
+                    mdnsDiscovery.stopAnnouncing() // noop if already stopped
+                }
+                mdnsDiscovery.stopDiscovering()
+                mdnsDiscovery.startDiscovering()
             }
-            mdnsDiscovery.stopDiscovering()
-            mdnsDiscovery.startDiscovering()
         }
     }
 

@@ -1,6 +1,6 @@
 # KDE Connect for keypad phones (com.android.cts.kdeconnect)
 
-A build of KDE Connect for Android for **phones with no touchscreen at all**: keypad and flip phones such as the Kyocera Cadence S2720 (Android 7.1.1), the Kyocera e4810, DuraXV and DuraXe, the TCL Flip 2 and the Sonim XP3 and X320 (Android 11). Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from the release build on a 240×320, 160 dpi emulator with no touchscreen, the screen most of these phones have.
+A build of KDE Connect for Android for **phones with no touchscreen at all**: keypad and flip phones such as the Kyocera Cadence S2720. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from the release build on a 240×320, 160 dpi emulator with no touchscreen, the most common keypad-phone screen.
 
 The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
 - **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key. The soft-key bar is [Yapchik](https://github.com/theOnionsAreWatching/yapchik) by theOnionsAreWatching.
@@ -16,13 +16,6 @@ Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.
 | Phone | Simulated size | Android | Coverage (screenshots in [`tests/devices/`](tests/devices/)) |
 |---|---|---|---|
 | Kyocera Cadence S2720 | 240x320 @ 160 | 7.1.1 | **FULLY COVERED** (22/22 in the full run; the SMS settings screens added since, frames 23-24, pass on their own) ([grid](tests/devices/kyocera-cadence-s2720/)) |
-| Kyocera e4810 | 240x320 @ 160 | 11 | PARTIAL: frames 05 and 15 still missing ([grid](tests/devices/kyocera-e4810/)) |
-| Kyocera DuraXV | 240x320 @ 160 | 11 | PENDING |
-| TCL Flip 2 | 240x320 @ 160 | 11 | PENDING |
-| Sonim XP3 (XP3800) | 240x320 @ 160 | 11 | PENDING |
-| Kyocera DuraXe e4830 | 240x320 @ **120** | 11 | PENDING |
-| Sonim X320 (XP3 Plus 5G) | 480x854 @ 320 | 11 | PENDING |
-| Sonim X320 @ low density | 480x854 @ **225** | 11 | PENDING |
 
 New models drop straight into the matrix: open an issue with the phone's name, screen resolution and Android version.
 
@@ -92,11 +85,11 @@ The table above compares debug builds. The release build (what you install), on 
 - **Texts:** a text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup. The conversation list comes from the message database's own "newest message of every conversation" query (one query, computed with the database's indexes) instead of two queries per conversation, and goes to the desktop 10 conversations per packet after the first. New texts keep reaching the computer after Android kills the app in the background. A text sent from the computer shows up in its conversation there even on phones that don't store texts sent by other apps (issue #3). A setting in the SMS plugin, "Conversations sent to the computer" (All, newest 50, newest 20; All by default), makes each connect load only the newest conversations (issue #4). Another, "Picture messages (MMS) on the computer" (on by default), can leave picture messages out so only texts are synced, which is faster (issue #5).
 - **Contacts** no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time.
 - **Lighter app:** every screen is plain Android views (Jetpack Compose is gone), and album art is loaded with plain Android code instead of two image and network libraries, decoded only as big as the screen.
-- **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, network discovery runs for a minute after each network change or Refresh instead of all the time, the device screen keeps its views when nothing on it changed (about 40% less layout and drawing at start), and whether the phone is a keypad phone is worked out once instead of on every screen build, and the navigation drawer is built only when it is shown (never on a keypad phone, where Options has its entries); the device screen's tiles are plain views drawn like Material cards, and the app's own certificate name is read without loading BouncyCastle at start (cold start median 4.8 s to 4.3 s on the emulator).
+- **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, network discovery runs for a minute after each network change or Refresh instead of all the time, the device screen keeps its views when nothing on it changed (about 40% less layout and drawing at start), and whether the phone is a keypad phone is worked out once instead of on every screen build, and the navigation drawer is built only when it is shown (never on a keypad phone, where Options has its entries); the device screen's tiles are plain views drawn like Material cards, and the app's own certificate name is read without loading BouncyCastle at start (cold start median 4.8 s to 4.3 s on the emulator). Start no longer waits on the main thread for the system's mDNS service (about 0.3 s on the emulator), for the "add device by IP" list to be looked up, or for the list of SIM cards, and it reads all its settings files at once instead of one after another.
 
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 
-**Developing:** [HANDOFF.md](HANDOFF.md) has the current state, the benchmarks, and how to test on the emulator with a stand-in desktop ([`tests/devices/`](tests/devices/) keypad tour, [`tests/perf/`](tests/perf/) speed and feature checks).
+**Developing:** testing runs on an Android emulator with a stand-in desktop: [`tests/devices/`](tests/devices/) has the keypad tour (every screen reached with keys only, per phone), [`tests/perf/`](tests/perf/) the speed and feature checks.
 
 ## Credits
 

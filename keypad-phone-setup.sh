@@ -1,8 +1,6 @@
 #!/system/bin/sh
 # One-time permission setup for KDE Connect (com.android.cts.kdeconnect) on a
-# phone with no touchscreen: the keypad phones this build supports (the Kyocera
-# Cadence S2720 on Android 7.1.1; the e4810, DuraXV, DuraXe, TCL Flip 2 and Sonim
-# XP3 / X320 on Android 11).
+# keypad phone with no touchscreen (Android 7.1 to 11).
 #
 # This runs ON THE PHONE, so it works the same from Windows (Command Prompt or
 # PowerShell), macOS and Linux. Install the APK, plug the phone in with USB

@@ -10,7 +10,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import android.telephony.PhoneStateListener
 import android.telephony.SignalStrength
 import android.telephony.SubscriptionManager
@@ -132,12 +132,12 @@ class ConnectivityListener(context: Context) {
     }
 
     private fun startListening() {
-        runOnMainThread {
+        runOnListenerThread {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 // Multi-SIM supported on Nougat+
                 val sm = context.getSystemService<SubscriptionManager>()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    sm?.addOnSubscriptionsChangedListener(context.mainExecutor, subscriptionsListener)
+                    sm?.addOnSubscriptionsChangedListener({ handler.post(it) }, subscriptionsListener)
                 } else {
                     sm?.addOnSubscriptionsChangedListener(subscriptionsListener)
                 }
@@ -150,7 +150,7 @@ class ConnectivityListener(context: Context) {
     }
 
     private fun stopListening() {
-        runOnMainThread {
+        runOnListenerThread {
             val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 val sm = context.getSystemService<SubscriptionManager>()
@@ -166,8 +166,13 @@ class ConnectivityListener(context: Context) {
         }
     }
 
-    private fun runOnMainThread(r: Runnable) {
-        Handler(Looper.getMainLooper()).post(r)
+    // The SIM listeners and their calls into the phone process (the list of active SIMs, ~100-200 ms on a slow
+    // phone, at every start) run on their own thread, not the main one. Callbacks arrive on the thread whose Looper
+    // created the listener, so everything below happens on this one thread, as it used to on the main thread.
+    private val handler: Handler by lazy { Handler(HandlerThread("ConnectivityListener").apply { start() }.looper) }
+
+    private fun runOnListenerThread(r: Runnable) {
+        handler.post(r)
     }
 
     private fun createListenerForSubscription(subID: Int): PhoneStateListener {
