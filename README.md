@@ -4,7 +4,7 @@ A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no t
 
 The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
 - **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key. The soft-key bar is [Yapchik](https://github.com/theOnionsAreWatching/yapchik) by theOnionsAreWatching.
-- **Focus:** an orange focus ring hugs the highlighted control, and every screen opens with something already highlighted.
+- **Focus:** an orange focus ring hugs the highlighted control, and every screen opens with something already highlighted, also right after the phone restarts (before the first key press).
 - **Space:** on-screen buttons the soft keys replace are removed to save room.
 
 Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed.
@@ -75,7 +75,7 @@ The table above compares debug builds. The release build (what you install), on 
 - **Texts:** a text's notification reaches the desktop as soon as the SMS arrives instead of waiting for the SMS app, which on a slow phone posts its own seconds later; when it does, it updates that same desktop notification (adding Reply) without a second popup. The conversation list comes from the message database's own "newest message of every conversation" query (one query, computed with the database's indexes) instead of two queries per conversation, and goes to the desktop 10 conversations per packet after the first. New texts keep reaching the computer after Android kills the app in the background.
 - **Contacts** no longer hold up everything else from the computer while they are read; they are built from one database query and sent 50 at a time.
 - **Lighter app:** every screen is plain Android views (Jetpack Compose is gone), and album art is loaded with plain Android code instead of two image and network libraries, decoded only as big as the screen.
-- **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, and network discovery runs for a minute after each network change or Refresh instead of all the time.
+- **Less work in the background:** the plugin list is built off the UI thread at start, notifications are built off the UI thread, MMS photo thumbnails are decoded at thumbnail size instead of full resolution, Find my phone prepares its ringtone only when it rings, network discovery runs for a minute after each network change or Refresh instead of all the time, the device screen keeps its views when nothing on it changed (about 40% less layout and drawing at start), and whether the phone is a keypad phone is worked out once instead of on every screen build.
 
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 

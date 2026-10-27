@@ -33,6 +33,8 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **MMS photo thumbnails are decoded at thumbnail size.** A camera photo was decoded at full resolution (tens of MB of bitmap) just to make a 100 px thumbnail.
 - **App start doesn't build the plugin list on the UI thread.**
 - **Remote keyboard and mouse turn on without reconnecting.** Their accessibility service being switched on (setup re-run after an update, say) now loads them for the connected computer straight away.
+- **Device screen rebuilt only when it changes.** A plugin loading or changing used to rebuild the whole screen; now it keeps its views when the change wouldn't alter what it shows (about 40% less layout and drawing at start).
+- **Keypad detection worked out once.** Whether the phone is a keypad phone took several system calls on every screen build, focus change and resume; it is now worked out once.
 - **Find my phone** prepares its ringtone only when the phone is rung, instead of holding a media player for the whole connection.
 - **Network discovery** (mDNS) runs for a minute after each network change or Refresh instead of all the time.
 
@@ -53,7 +55,7 @@ Everything below switches on automatically on phones with no touchscreen (or a r
   - The Options menu sits right on top of the bar and is only as wide as its longest entry.
   - Settings has a **Hardware soft keys** switch and **Calibrate soft keys**, for phones whose keys aren't recognised.
 - **Clear focus highlight.** The highlighted item gets Vela's orange outline. It hugs the control: a toggle's pill, a button's shape, a menu row.
-- **Every screen opens with something already highlighted** (About opens on the app card).
+- **Every screen opens with something already highlighted** (About opens on the app card), also right after the phone restarts. Android starts in touch mode until the first key press; the device screen then highlighted the whole page and its Options menu opened with nothing highlighted. Now the page never takes the highlight on keypad phones, and its controls and menu rows can be highlighted in touch mode too.
 - **More room on tiny screens.** On 240×320 displays the app lays itself out as if the screen were wider, so things fit instead of being cut off. Text is a little smaller.
 - **Everything reachable with the D-pad:**
   - Plugin rows now let you open a plugin's settings or turn it on/off.
