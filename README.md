@@ -79,6 +79,8 @@ The table above compares debug builds. The release build (what you install), on 
 
 **Releases:** every push to master that touches the app publishes a release with the arm64 and armv7 APKs, with its own version: 1.37.N, where N goes up with every build. A newer push cancels a build still running, and each release's notes list every commit since the previous release.
 
+**Developing:** [HANDOFF.md](HANDOFF.md) has the current state, the benchmarks, and how to test on the emulator with a stand-in desktop ([`tests/devices/`](tests/devices/) keypad tour, [`tests/perf/`](tests/perf/) speed and feature checks).
+
 ## Credits
 
 - **[Yapchik](https://github.com/theOnionsAreWatching/yapchik)** by theOnionsAreWatching: the soft-key engine. It finds the phone's soft keys and draws the on-screen soft-key bar with their labels. It is included as source in [`yapchik/`](yapchik/) under the GNU LGPL v3 or later (see [`yapchik/LICENSE`](yapchik/LICENSE) and [`yapchik/NOTICE`](yapchik/NOTICE)).
