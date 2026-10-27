@@ -1,3 +1,3 @@
-  COVERED  09 device-options
-  COVERED  10 plugin-settings
-RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (2 covered, 0 missed; phases: device)
+  COVERED  23 sms-settings
+  COVERED  24 sms-conversation-limit
+RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (2 covered, 0 missed; phases: smssettings)

@@ -9,7 +9,9 @@ import androidx.appcompat.widget.SwitchCompat
 import android.widget.ImageButton
 import android.widget.CompoundButton
 import android.view.ViewGroup
-import android.app.Activity
+import android.view.Window
+import android.widget.AbsListView
+import java.util.WeakHashMap
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewTreeObserver
@@ -27,8 +29,8 @@ private const val FOCUS_RING_ARGB = 0xFFFF6D00.toInt()
  *  - a button rings its own rounded shape inside its touch insets; an icon button gets a circle
  *  - anything else gets a softly rounded rectangle
  */
-internal class ViewFocusRing(private val activity: Activity) : ViewTreeObserver.OnGlobalFocusChangeListener {
-    private val density = activity.resources.displayMetrics.density
+internal class ViewFocusRing(private val window: Window) : ViewTreeObserver.OnGlobalFocusChangeListener {
+    private val density = window.context.resources.displayMetrics.density
     private val stroke = (3 * density).toInt().coerceAtLeast(2)
     private val ring = GradientDrawable().apply {
         setColor(android.graphics.Color.TRANSPARENT)
@@ -46,6 +48,12 @@ internal class ViewFocusRing(private val activity: Activity) : ViewTreeObserver.
         host = null
         focused = newFocus
         val view = newFocus ?: return
+        // A list (a dialog's choices) keeps the focus itself and marks its current row with its selector: ring that
+        // row, not the whole list
+        if (view is AbsListView) {
+            ringRows(view)
+            return
+        }
         val target = toggleIn(view) ?: view
         host = target
         target.overlay.add(ring)
@@ -118,14 +126,27 @@ internal class ViewFocusRing(private val activity: Activity) : ViewTreeObserver.
         target.invalidate()
     }
 
+    private val rungLists = WeakHashMap<AbsListView, Boolean>()
+
+    /** The list's selector (drawn on its current row while it has keypad focus) becomes the orange ring */
+    private fun ringRows(list: AbsListView) {
+        if (rungLists.put(list, true) != null) return
+        list.selector = GradientDrawable().apply {
+            setColor(android.graphics.Color.TRANSPARENT)
+            setStroke(stroke, FOCUS_RING_ARGB)
+            cornerRadius = 8 * density
+        }
+        list.setDrawSelectorOnTop(true)
+    }
+
     fun install() {
-        activity.window?.decorView?.viewTreeObserver?.addOnGlobalFocusChangeListener(this)
+        window.decorView.viewTreeObserver.addOnGlobalFocusChangeListener(this)
         // Ring whatever already has focus (the framework focuses the first focusable view on open)
-        activity.currentFocus?.let { onGlobalFocusChanged(null, it) }
+        window.currentFocus?.let { onGlobalFocusChanged(null, it) }
         // Focus given before the window is attached (e.g. requestFocus() in onResume on first open) fires no focus
         // event, so check again once attached
-        activity.window?.decorView?.post {
-            val current = activity.currentFocus
+        window.decorView.post {
+            val current = window.currentFocus
             if (current != null && current !== focused) onGlobalFocusChanged(null, current)
         }
     }
