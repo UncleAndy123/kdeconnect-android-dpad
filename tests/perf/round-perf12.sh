@@ -16,7 +16,7 @@ prep() {
   adb shell settings put secure enabled_accessibility_services $PKG/org.kde.kdeconnect.KdeConnectAccessibilityService
   echo "installed $(adb shell dumpsys package $PKG | grep -m1 versionName | tr -d ' ')"
 }
-pairing_notif() { adb shell dumpsys notification | grep -c "Pairing request from"; }
+pairing_notif() { adb shell dumpsys notification --noredact | grep -c "Pairing request from"; }
 for pair in "$1|$2" "$3|$4"; do
   apk=${pair%|*}; lab=${pair#*|}
   step "$lab: install"; prep "$apk"
