@@ -62,6 +62,7 @@ object ViewBuilders {
     fun keypadScroll(view: View) {
         if (!org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(view.context)) return
         view.isFocusable = true
+        view.isFocusableInTouchMode = true // keypad phones start in touch mode until their first key press
         if (view is android.view.ViewGroup) view.descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
         val step = dp(view.context, 120)
         view.setOnKeyListener { v, keyCode, event ->
@@ -100,6 +101,8 @@ object ViewBuilders {
     fun card(context: Context, onClick: () -> Unit): MaterialCardView =
         MaterialCardView(context, null, MR.attr.materialCardViewFilledStyle).apply {
             isFocusable = true
+            // Keypad phones start in touch mode until their first key press: stay focusable then too
+            isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
             isClickable = true
             setOnClickListener { onClick() }
         }

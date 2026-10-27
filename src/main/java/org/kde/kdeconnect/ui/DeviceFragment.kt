@@ -250,8 +250,10 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
             }
         }
         with(requireView()) {
-            // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus
-            if (!isInTouchMode) return
+            // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus. Keypad
+            // phones too, even in touch mode (they start in it until their first key press): the ring would sit on
+            // the whole page
+            if (!isInTouchMode || KeypadSoftkeys.isKeypadDevice(context)) return
             isFocusableInTouchMode = true
             requestFocus()
         }
@@ -407,6 +409,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         return MaterialCardView(context, null, com.google.android.material.R.attr.materialCardViewFilledStyle).apply {
             tag = "plugin:" + button.name
             isFocusable = true
+            // Keypad phones start in touch mode until their first key press: stay focusable then too
+            isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
             isClickable = true
             contentDescription = button.name
             setOnClickListener { mActivity?.let { button.onClick(it) } }
@@ -448,6 +452,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                 setTextColor(color(com.google.android.material.R.attr.colorOnSurface))
                 setPadding(dp(28), dp(12), dp(16), dp(12))
                 isFocusable = true
+                // Keypad phones start in touch mode until their first key press: stay focusable then too
+                isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
                 isClickable = true
                 setBackgroundResource(attrRes(android.R.attr.selectableItemBackground))
                 setOnClickListener { action(plugin) }

@@ -192,6 +192,8 @@ class PresenterActivity : KdeActivity(), SensorEventListener, OnSharedPreference
             iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
             iconPadding = 0
             maxLines = 1
+            // Keypad phones start in touch mode until their first key press: stay focusable then too
+            isFocusableInTouchMode = KeypadSoftkeys.isKeypadDevice(context)
         }
 
     /** Volume-keys tip, big Previous / Next buttons and (with a gyroscope) the pointer button */

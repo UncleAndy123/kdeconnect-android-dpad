@@ -73,6 +73,8 @@ class AboutFragment : Fragment() {
 
     private fun appInfoCard(ctx: Context): View = elevatedCard(ctx).apply {
         isFocusable = true
+        // Keypad phones start in touch mode until their first key press: stay focusable then too
+        isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
         isClickable = true
         setOnClickListener { onAppCardClicked(ctx) }
         addView(LinearLayout(ctx).apply {
@@ -139,6 +141,8 @@ class AboutFragment : Fragment() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         isFocusable = true
+        // Keypad phones start in touch mode until their first key press: stay focusable then too
+        isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
         isClickable = true
         background = ViewBuilders.selectableBackground(ctx, borderless = true)
         setOnClickListener { onClick() }

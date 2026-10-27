@@ -118,6 +118,7 @@ object KeypadDialog {
                 addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))
             }
             isFocusable = true
+            isFocusableInTouchMode = true // keypad phones start in touch mode until the first key press
             isClickable = true
             setOnClickListener { onClick() }
         }
