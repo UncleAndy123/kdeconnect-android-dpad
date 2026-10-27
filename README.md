@@ -1,6 +1,6 @@
 # KDE Connect for keypad phones (com.android.cts.kdeconnect)
 
-A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no touchscreen at all**, like the Kyocera Cadence S2720 flip phone. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from a 240×320, 160 dpi emulator with no touchscreen, the same as the Cadence.
+A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no touchscreen at all**, like the Kyocera Cadence S2720 flip phone. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from the release build on a 240×320, 160 dpi emulator with no touchscreen, the same as the Cadence.
 
 The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
 - **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key. The soft-key bar is [Yapchik](https://github.com/theOnionsAreWatching/yapchik) by theOnionsAreWatching.
