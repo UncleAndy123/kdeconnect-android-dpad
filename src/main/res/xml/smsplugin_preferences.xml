@@ -33,4 +33,14 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
         android:summary="%s"
         android:title="@string/convert_to_mms_after_title" />
 
+    <!-- Fewer conversations on each connect on a slow phone; an older one still arrives when a new message does -->
+    <ListPreference
+        android:id="@+id/conversations_to_computer_preference"
+        android:defaultValue="@string/sms_conversations_to_computer_default"
+        android:entries="@array/sms_conversations_to_computer_entries"
+        android:entryValues="@array/sms_conversations_to_computer_values"
+        android:key="@string/sms_conversations_to_computer"
+        android:summary="%s"
+        android:title="@string/sms_conversations_to_computer_title" />
+
 </PreferenceScreen>

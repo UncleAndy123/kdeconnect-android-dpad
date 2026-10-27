@@ -248,7 +248,9 @@ class SMSPlugin : Plugin() {
     @WorkerThread
     private fun handleRequestAllConversations(packet: NetworkPacket): Boolean {
         haveMessagesBeenRequested = true
-        val conversations: Iterator<SMSHelper.Message> = getConversations(this.context).iterator()
+        // "Conversations sent to the computer": all (default) or only the newest N (issue #4)
+        val limit = preferences.getString(context.getString(R.string.sms_conversations_to_computer), null)?.toIntOrNull()
+        val conversations: Iterator<SMSHelper.Message> = getConversations(this.context, limit).iterator()
 
         // The newest conversation goes out on its own straight away (the desktop shows something at once); the
         // rest go in small batches instead of one packet each, which is a lot of per-packet work on a slow phone
