@@ -37,7 +37,14 @@ def lines():
 
 
 def set_pref(value):
+    # The app's accessibility service restarts the app right after a force-stop, and a running app writes its own
+    # copy of the preferences back over an edit: switch the service off first, and check the app stays stopped
+    adb("shell", "settings", "put", "secure", "enabled_accessibility_services", "")
     adb("shell", "am", "force-stop", PKG)
+    time.sleep(3)
+    if adb("shell", "pidof", PKG).strip():
+        adb("shell", "am", "force-stop", PKG)
+        time.sleep(3)
     xml = adb("shell", "cat", PREFS)
     import re
     xml = re.sub(r'\s*<string name="%s">[^<]*</string>' % KEY, "", xml)
@@ -48,7 +55,8 @@ def set_pref(value):
     adb("shell", "cp %s %s && chown $(stat -c %%u:%%g %s) %s && chmod 660 %s && chcon $(ls -Zd %s | cut -d' ' -f1) %s"
         % (tmp, PREFS, d, PREFS, PREFS, d, PREFS))
     got = adb("shell", "grep", KEY, PREFS).strip()
-    return got
+    running = adb("shell", "pidof", PKG).strip()
+    return got + (" (WARNING: the app was running while it was written)" if running else "")
 
 
 def start_and_connect():
@@ -85,6 +93,8 @@ for value in settings:
     say("== setting %s: %s" % (value, set_pref(value)))
     c = start_and_connect()
     say("connected after %s s" % (None if c is None else round(c)))
+    kept = adb("shell", "grep", KEY, PREFS).strip()
+    say("setting after the app started: %s" % (kept or "GONE (the app overwrote it)"))
     time.sleep(20)  # let the connect's own traffic (mpris, contacts, ...) pass
     mark = len(lines())
     t0 = time.time()
