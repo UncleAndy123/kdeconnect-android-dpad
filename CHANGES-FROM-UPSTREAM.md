@@ -37,6 +37,7 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **App start doesn't build the plugin list on the UI thread.**
 - **Remote keyboard and mouse turn on without reconnecting.** Their accessibility service being switched on (setup re-run after an update, say) now loads them for the connected computer straight away.
 - **Device screen rebuilt only when it changes.** A plugin loading or changing used to rebuild the whole screen; now it keeps its views when the change wouldn't alter what it shows (about 40% less layout and drawing at start).
+- **Navigation drawer without Material's NavigationView.** NavigationView built every drawer row with a RecyclerView at each app start, even on keypad phones, where the drawer is never opened (Options has the same entries). A plain-view drawer with the same header, sections, icons and selected highlight builds its rows only when it is shown (straight away on tablets, where it is always visible).
 - **Keypad detection worked out once.** Whether the phone is a keypad phone took several system calls on every screen build, focus change and resume; it is now worked out once.
 - **Find my phone** prepares its ringtone only when the phone is rung, instead of holding a media player for the whole connection.
 - **Network discovery** (mDNS) runs for a minute after each network change or Refresh instead of all the time.

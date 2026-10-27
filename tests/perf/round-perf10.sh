@@ -2,8 +2,9 @@
 # round-perf10.sh <apk> <label>: the navigation drawer without Material's NavigationView (perf-10).
 # 1. fresh-install.sh: uninstall, install, setup, pairing through the keypad first-run phase (frames 01-08).
 # 2. Tour phase "device" (frames 09-10).
-# 3. The drawer itself: a keypad phone never shows it, so make the emulator a tablet (wm size 1280x800 @ 160 picks
-#    layout-w820dp, where the drawer is always visible), screenshot it and check its rows: the device name header,
+# 3. The drawer itself: a keypad phone never shows it, so make the emulator tablet-wide (820 dp or more picks
+#    layout-w820dp, where the drawer is always visible; Android 7 caps `wm size` at twice the physical screen, so a
+#    low density makes it wide enough: 640x480 @ 80 = 960 dp), screenshot it and check its rows: the device name header,
 #    the paired stand-in "Desktop" (checked), and the Pair / Settings / About entries.
 export ANDROID_HOME=${ANDROID_HOME:-/opt/android-sdk}; export PATH=$PATH:$ANDROID_HOME/platform-tools
 P=$(cd "$(dirname "$0")" && pwd); R=$P/../..
@@ -20,7 +21,7 @@ step "tour: device phase"
 PHASES="device" timeout 1500 bash $R/tests/devices/full_coverage.sh kyocera-cadence-s2720 | grep --line-buffered -E "COVERED|MISSED|RESULT"
 
 step "drawer on a tablet-sized screen"
-adb shell wm size 1280x800; adb shell wm density 160
+adb shell wm size 640x480; adb shell wm density 80
 adb shell am force-stop $PKG; sleep 2
 adb shell am start -n $PKG/org.kde.kdeconnect.ui.MainActivity > /dev/null; sleep 25
 adb exec-out screencap -p > $out/drawer-tablet.png
