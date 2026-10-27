@@ -85,7 +85,6 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
 
     private var lastBroadcast: Long = 0
     @Volatile
-    @Volatile
     private var isStopped = true
 
     fun hasDevice(id: String): Boolean {
