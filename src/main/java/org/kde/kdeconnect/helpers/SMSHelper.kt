@@ -9,6 +9,8 @@ package org.kde.kdeconnect.helpers
 import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context
+import androidx.preference.PreferenceManager
+import org.kde.kdeconnect_tp.R
 import android.database.Cursor
 import android.database.sqlite.SQLiteException
 import android.graphics.Bitmap
@@ -74,6 +76,10 @@ object SMSHelper {
      * @param context  android.content.Context running the request
      * @return Timestamp of the oldest known message.
      */
+    /** "Picture messages (MMS) sent to the computer" (issue #5; on by default): off leaves MMS out of what is sent */
+    fun mmsEnabled(context: Context): Boolean = PreferenceManager.getDefaultSharedPreferences(context)
+        .getBoolean(context.getString(R.string.sms_send_mms_to_computer), true)
+
     fun getNewestMessageTimestamp(context: Context): Long {
         var oldestMessageTimestamp = Long.MIN_VALUE
         val newestMessage = getMessagesInRange(context, null, Long.MAX_VALUE, 1L, true)
@@ -152,7 +158,7 @@ object SMSHelper {
             sortOrder,
             numberToGet
         )
-        allMessages.addAll(
+        if (mmsEnabled(context)) allMessages.addAll(
             getMessages(
                 Telephony.Mms.CONTENT_URI,
                 context,
@@ -323,6 +329,9 @@ object SMSHelper {
                 return null
             }
         }
+        // "Picture messages (MMS) sent to the computer" off: skip it before the costly part (its parts, addresses and
+        // thumbnail); a conversation list then falls back to the conversation's newest text
+        if (transportType == TransportType.MMS && !mmsEnabled(context)) return null
         val messageInfo = HashMap<String, String?>()
         for (columnIdx in 0 until myCursor.columnCount) {
             val colName = myCursor.getColumnName(columnIdx)

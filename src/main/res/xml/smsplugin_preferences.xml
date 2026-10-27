@@ -33,6 +33,14 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
         android:summary="%s"
         android:title="@string/convert_to_mms_after_title" />
 
+    <!-- Picture messages cost the most to read and send; off leaves them out (issue #5) -->
+    <SwitchPreference
+        android:id="@+id/send_mms_to_computer_preference"
+        android:defaultValue="true"
+        android:key="@string/sms_send_mms_to_computer"
+        android:summary="@string/sms_send_mms_to_computer_summary"
+        android:title="@string/sms_send_mms_to_computer_title" />
+
     <!-- Fewer conversations on each connect on a slow phone; an older one still arrives when a new message does -->
     <ListPreference
         android:id="@+id/conversations_to_computer_preference"
