@@ -1,6 +1,7 @@
 #!/system/bin/sh
-# One-time permission setup for KDE Connect (com.android.cts.kdeconnect) on an
-# Android 7.1.1 phone with no touchscreen (Kyocera Cadence S2720).
+# One-time permission setup for KDE Connect (com.android.cts.kdeconnect) on a
+# phone with no touchscreen: the Kyocera Cadence S2720 (Android 7.1.1) and the
+# other keypad phones vela-dpad supports (Android 11).
 #
 # This runs ON THE PHONE, so it works the same from Windows (Command Prompt or
 # PowerShell), macOS and Linux. Install the APK, plug the phone in with USB
@@ -18,15 +19,16 @@ if ! pm path $PKG > /dev/null 2>&1; then
     exit 1
 fi
 
-# Runtime permissions. Only ones that exist on 7.1.1; the rest are for newer Android.
+# Runtime permissions. Ones this phone's Android doesn't have are skipped (the last four are Android 10-12+).
 for p in \
     READ_SMS SEND_SMS RECEIVE_SMS RECEIVE_MMS \
     READ_PHONE_STATE READ_CALL_LOG READ_CONTACTS \
     READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE \
-    ACCESS_COARSE_LOCATION ACCESS_FINE_LOCATION \
-    CAMERA RECORD_AUDIO
+    ACCESS_COARSE_LOCATION ACCESS_FINE_LOCATION ACCESS_BACKGROUND_LOCATION \
+    CAMERA RECORD_AUDIO \
+    POST_NOTIFICATIONS BLUETOOTH_CONNECT BLUETOOTH_SCAN
 do
-    pm grant $PKG android.permission.$p || echo "  (could not grant $p, skipped)"
+    pm grant $PKG android.permission.$p > /dev/null 2>&1 || echo "  ($p not available on this phone, skipped)"
 done
 
 # Adds a component to a ':'-separated secure setting without dropping what's already there.
@@ -40,8 +42,9 @@ append_secure() {
     esac
 }
 
-# Notification sync (cmd notification allow_listener is Android 8+, so use the setting directly)
-append_secure enabled_notification_listeners $PKG/org.kde.kdeconnect.plugins.notifications.NotificationReceiver
+# Notification sync (cmd notification allow_listener is Android 8+; Android 7 takes the setting directly)
+LISTENER=$PKG/org.kde.kdeconnect.plugins.notifications.NotificationReceiver
+cmd notification allow_listener $LISTENER > /dev/null 2>&1 || append_secure enabled_notification_listeners $LISTENER
 
 # Remote keyboard + remote mouse into the phone
 append_secure enabled_accessibility_services $PKG/org.kde.kdeconnect.KdeConnectAccessibilityService
@@ -49,6 +52,10 @@ settings put secure accessibility_enabled 1
 
 # Floating clipboard button / overlays
 appops set $PKG SYSTEM_ALERT_WINDOW allow
+
+# Android 11+: browsing all files from the computer; Android 14+: Find my phone rings full screen
+appops set $PKG MANAGE_EXTERNAL_STORAGE allow > /dev/null 2>&1
+appops set $PKG USE_FULL_SCREEN_INTENT allow > /dev/null 2>&1
 
 # Keep the connection alive while the phone is closed (Doze)
 dumpsys deviceidle whitelist +$PKG > /dev/null
