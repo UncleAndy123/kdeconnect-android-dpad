@@ -121,7 +121,10 @@ if echo:
 echoes = [json.loads(l) for l in lines()[mark:]]
 ids = [m.get("_id") for r in echoes if r.get("dir") == "phone->pc" and r["type"] == "kdeconnect.sms.messages"
        for m in r["body"].get("messages", []) if m.get("body") == body]
-say("echoes of this text: %d (ids %s)" % (len(ids), ids))
+# The observer can send the same stored message more than once (insert, then update); the computer keeps one
+# message per _id, so what would show twice is two DIFFERENT ids for the same text
+distinct = sorted(set(ids), key=str)
+say("echoes of this text: %d packets, %d distinct message id(s) %s" % (len(ids), len(distinct), distinct))
 if nostore:
     adb("shell", "sqlite3 %s \"DROP TRIGGER IF EXISTS issue3_nostore\"" % DB)
 say("SMS database row: %s" % in_db(body))
@@ -134,9 +137,9 @@ if nostore:
     # The app's own echo has a negative _id; Android's copy never stays in the database, so nothing else can echo
     own = [i for i in ids if isinstance(i, int) and i < 0]
     say("the app's own echo: %s" % ("yes" if own else "NO"))
-    verdict = "PASS" if len(own) == 1 and len(ids) == 1 else ("FAIL-DUPLICATE" if len(ids) > 1 else "FAIL")
+    verdict = "PASS" if len(own) == 1 and len(distinct) == 1 else ("FAIL-DUPLICATE" if len(distinct) > 1 else "FAIL")
 else:
-    verdict = "PASS" if echo and len(ids) == 1 else ("FAIL-DUPLICATE" if echo else "FAIL")
+    verdict = "PASS" if echo and len(distinct) == 1 else ("FAIL-DUPLICATE" if echo else "FAIL")
 say("%s ISSUE3 %s (restart=%s, simulate-no-store=%s)" % (label, verdict, restart, nostore))
 os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
 with open(os.path.join(HERE, "results", "issue3-%s%s%s.txt" % (label, "-restart" if restart else "", "-nostore" if nostore else "")), "w") as f:
