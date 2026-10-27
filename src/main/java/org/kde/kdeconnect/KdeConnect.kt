@@ -53,6 +53,12 @@ class KdeConnect : Application() {
     override fun onCreate() {
         super.onCreate()
         _instance = this
+        // Each preferences file loads on its own thread when first asked for, and the first read waits for it.
+        // Ask for every file read during start-up at once, so the main thread waits for the slowest one instead of
+        // for each in turn (~40-140 ms each on a slow phone).
+        getSharedPreferences(packageName + "_preferences", MODE_PRIVATE) // the default preferences
+        getSharedPreferences("yapchik", MODE_PRIVATE) // the soft keys (Yapchik)
+        getSharedPreferences("trusted_devices", MODE_PRIVATE)
         // Keypad phones: hardware soft keys replace on-screen chrome (no-op on touch phones)
         org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.init(this)
         setupSL4JLogging()
@@ -138,6 +144,7 @@ class KdeConnect : Application() {
     private fun loadRememberedDevicesFromSettings() {
         // Log.e("BackgroundService", "Loading remembered trusted devices")
         val trustedDevices = TrustedDevices.getAllTrustedDevices(this)
+        trustedDevices.forEach { getSharedPreferences(it, MODE_PRIVATE) } // load each device's settings at once
         trustedDevices.asSequence()
             .onEach { Log.d("KdeConnect", "Loading device $it") }
             .forEach {
