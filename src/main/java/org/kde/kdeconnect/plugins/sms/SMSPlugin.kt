@@ -14,6 +14,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.os.SystemClock
 import android.os.Handler
 import androidx.annotation.WorkerThread
 import androidx.core.content.ContextCompat
@@ -229,11 +230,22 @@ class SMSPlugin : Plugin() {
         haveMessagesBeenRequested = true
         val conversations: Iterator<SMSHelper.Message> = getConversations(this.context).iterator()
 
+        // The newest conversation goes out on its own straight away (the desktop shows something at once); the
+        // rest go in small batches instead of one packet each, which is a lot of per-packet work on a slow phone
+        val batch = ArrayList<SMSHelper.Message>(CONVERSATIONS_PER_PACKET)
+        var lastSent = SystemClock.elapsedRealtime()
+        var first = true
         while (conversations.hasNext()) {
-            val message: SMSHelper.Message = conversations.next()
-            val partialReply: NetworkPacket = constructBulkMessagePacket(setOf(message))
-            device.sendPacket(partialReply)
+            batch.add(conversations.next())
+            val now = SystemClock.elapsedRealtime()
+            if (first || batch.size >= CONVERSATIONS_PER_PACKET || now - lastSent >= CONVERSATIONS_FLUSH_MS) {
+                device.sendPacket(constructBulkMessagePacket(batch.toList()))
+                batch.clear()
+                lastSent = now
+                first = false
+            }
         }
+        if (batch.isNotEmpty()) device.sendPacket(constructBulkMessagePacket(batch.toList()))
 
         return true
     }
@@ -411,6 +423,10 @@ class SMSPlugin : Plugin() {
          * @param messages Messages to include in the packet
          * @return NetworkPacket of type [PACKET_TYPE_SMS_MESSAGE]
          */
+        /** Conversation list entries per packet, and the longest a ready entry waits for the rest of its batch */
+        private const val CONVERSATIONS_PER_PACKET = 10
+        private const val CONVERSATIONS_FLUSH_MS = 300L
+
         private fun constructBulkMessagePacket(messages: Iterable<SMSHelper.Message>): NetworkPacket {
             val reply = NetworkPacket(PACKET_TYPE_SMS_MESSAGE)
 
