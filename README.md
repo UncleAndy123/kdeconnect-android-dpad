@@ -9,6 +9,23 @@ The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpa
 
 Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.md](CHANGES-FROM-UPSTREAM.md) for everything that changed.
 
+## Phone status
+
+**All testing is simulated**: an emulator with no touchscreen, running the phone's Android version, with its screen size set by `wm size` / `wm density`. Nothing has run on the actual phones yet. Each phone has its own full-coverage profile ([`tests/devices/`](tests/devices/)): every keypad screen reached with keys only, opening with something highlighted, nothing cut off.
+
+| Phone | Simulated size | Android | Coverage (screenshots in [`tests/devices/`](tests/devices/)) |
+|---|---|---|---|
+| Kyocera Cadence S2720 | 240x320 @ 160 | 7.1.1 | **FULLY COVERED** (22/22 in the full run; the SMS settings screens added since, frames 23-24, pass on their own) ([grid](tests/devices/kyocera-cadence-s2720/)) |
+| Kyocera e4810 | 240x320 @ 160 | 11 | PARTIAL: frames 05 and 15 still missing ([grid](tests/devices/kyocera-e4810/)) |
+| Kyocera DuraXV | 240x320 @ 160 | 11 | PENDING |
+| TCL Flip 2 | 240x320 @ 160 | 11 | PENDING |
+| Sonim XP3 (XP3800) | 240x320 @ 160 | 11 | PENDING |
+| Kyocera DuraXe e4830 | 240x320 @ **120** | 11 | PENDING |
+| Sonim X320 (XP3 Plus 5G) | 480x854 @ 320 | 11 | PENDING |
+| Sonim X320 @ low density | 480x854 @ **225** | 11 | PENDING |
+
+New models drop straight into the matrix: open an issue with the phone's name, screen resolution and Android version.
+
 **Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`cadence-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-dpad/master/cadence-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
 
 ```
