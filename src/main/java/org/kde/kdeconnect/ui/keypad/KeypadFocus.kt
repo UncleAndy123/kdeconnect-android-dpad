@@ -109,6 +109,10 @@ internal class ViewFocusRing(private val window: Window) : ViewTreeObserver.OnGl
                 ring.setBounds(0, 0, w, h)
                 ring.cornerRadius = target.radius
             }
+            target is org.kde.kdeconnect.ui.views.Tile -> {
+                ring.setBounds(0, 0, w, h)
+                ring.cornerRadius = target.cornerRadius
+            }
             target is MaterialButton -> {
                 ring.setBounds(0, target.insetTop, w, h - target.insetBottom)
                 ring.cornerRadius = target.cornerRadius.toFloat().coerceAtMost((h - target.insetTop - target.insetBottom) / 2f)

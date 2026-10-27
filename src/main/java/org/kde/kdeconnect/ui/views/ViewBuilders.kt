@@ -26,6 +26,25 @@ import com.google.android.material.R as MR
  * screen, share chooser). Plain views are far cheaper to load and build on a low-end phone. They keep the
  * same Material 3 look: the same text styles, colours, filled cards and spacing.
  */
+/**
+ * What a Material 3 filled card looks like (fill colorSurfaceContainerHighest, medium 12dp corners, no shadow, a
+ * ripple clipped to the corners) as a plain FrameLayout: MaterialCardView costs far more to create and measure
+ * (the device screen builds one per plugin at every start). [cornerRadius] is what the keypad focus ring follows.
+ */
+class Tile(context: Context) : android.widget.FrameLayout(context) {
+    val cornerRadius = 12 * context.resources.displayMetrics.density
+
+    init {
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(ViewBuilders.color(context, MR.attr.colorSurfaceContainerHighest))
+            cornerRadius = this@Tile.cornerRadius
+        }
+        val ripple = androidx.core.graphics.ColorUtils.setAlphaComponent(ViewBuilders.color(context, MR.attr.colorOnSurface), 0x1F)
+        foreground = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(ripple), null,
+            android.graphics.drawable.GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = this@Tile.cornerRadius })
+    }
+}
+
 object ViewBuilders {
     fun dp(context: Context, v: Int): Int = (v * context.resources.displayMetrics.density).toInt()
 

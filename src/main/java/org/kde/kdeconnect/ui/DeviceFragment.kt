@@ -40,7 +40,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import kotlinx.coroutines.launch
@@ -406,7 +405,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
 
     private fun pluginButton(button: Plugin.PluginUiButton): View {
         val context = requireContext()
-        return MaterialCardView(context, null, com.google.android.material.R.attr.materialCardViewFilledStyle).apply {
+        // Looks like a Material filled card, without MaterialCardView's cost (one per plugin, at every start)
+        return org.kde.kdeconnect.ui.views.Tile(context).apply {
             tag = "plugin:" + button.name
             isFocusable = true
             // Keypad phones start in touch mode until their first key press: stay focusable then too
