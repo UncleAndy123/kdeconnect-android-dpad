@@ -193,6 +193,10 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
             android:label="@string/findmyphone_title"
             android:launchMode="singleInstance" />
 
+        <!-- Told when an SMS sent from the computer has gone out (checks the phone stored it; issue #3) -->
+        <receiver android:name="org.kde.kdeconnect.plugins.sms.SentSmsReceiver"
+            android:exported="false" />
+
         <receiver android:name="org.kde.kdeconnect.plugins.findmyphone.FindMyPhoneReceiver"
             android:exported="true">
             <intent-filter>

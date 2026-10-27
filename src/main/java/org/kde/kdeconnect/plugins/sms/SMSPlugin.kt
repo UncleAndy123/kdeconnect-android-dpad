@@ -145,6 +145,22 @@ class SMSPlugin : Plugin() {
         device.sendPacket(constructBulkMessagePacket(messages))
     }
 
+    /**
+     * A message sent from the computer went out but the phone didn't store it in the SMS database (some phones
+     * don't for an app that isn't the default SMS app), so the usual echo from the database never comes: send the
+     * computer the sent message ourselves. Its id is negative so it can't match a stored message.
+     */
+    fun echoUnstoredSentMessage(body: String, addresses: List<String>, sentAt: Long) {
+        if (!haveMessagesBeenRequested) return // nobody on the computer is showing messages
+        val threadID = SMSHelper.threadIdFor(context, addresses)
+        val message = SMSHelper.Message(
+            addresses.map { SMSHelper.Address(it) }, body, sentAt, android.provider.Telephony.Sms.MESSAGE_TYPE_SENT,
+            1, threadID, -sentAt, SMSHelper.Message.EVENT_TEXT_MESSAGE or
+                (if (addresses.size > 1) SMSHelper.Message.EVENT_MULTI_TARGET else 0), -1, null
+        )
+        device.sendPacket(constructBulkMessagePacket(listOf(message)))
+    }
+
     override val permissionExplanation: Int = R.string.telepathy_permission_explanation
 
     override fun onCreate() {
@@ -201,7 +217,11 @@ class SMSPlugin : Plugin() {
             }
             val attachedFiles: List<SMSHelper.Attachment> = jsonArrayToAttachmentsList(np.getJsonArray("attachments"))
 
-            sendMessage(context, textMessage, attachedFiles, addressList.toMutableList(), subID.toInt())
+            // A plain SMS: check it was stored once it has gone out, so the computer shows it (issue #3)
+            val sentReceiver = if (attachedFiles.isEmpty()) {
+                SentSmsReceiver.intent(context, device.deviceId, textMessage, addressList.map { it.address })
+            } else null
+            sendMessage(context, textMessage, attachedFiles, addressList.toMutableList(), subID.toInt(), sentReceiver)
 
             true
         }
