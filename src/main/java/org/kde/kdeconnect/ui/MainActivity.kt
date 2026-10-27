@@ -36,7 +36,7 @@ import androidx.core.view.updatePadding
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
-import com.google.android.material.navigation.NavigationView
+import org.kde.kdeconnect.ui.views.NavDrawerView
 import org.kde.kdeconnect.BackgroundService
 import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.KdeConnect
@@ -56,7 +56,7 @@ private const val STATE_SELECTED_DEVICE = "selected_device" //Saved persistently
 
 class MainActivity : KdeActivity(), OnSharedPreferenceChangeListener {
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
-    private val mNavigationView: NavigationView by lazy { binding.navigationDrawer }
+    private val mNavigationView: NavDrawerView by lazy { binding.navigationDrawer }
     private var mDrawerLayout: DrawerLayout? = null
 
     private val upfrontPermissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
