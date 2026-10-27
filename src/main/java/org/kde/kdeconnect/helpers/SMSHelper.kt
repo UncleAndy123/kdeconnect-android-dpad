@@ -519,9 +519,7 @@ object SMSHelper {
                 .sortedWith { left: Pair<ThreadID, Long>, right: Pair<ThreadID, Long> -> right.second.compareTo(left.second) }
                 .map { threadTimestampPairElement: Pair<ThreadID, Long> -> threadTimestampPairElement.first }
         }
-        // A limit: with dates (the usual case) keep the newest threads before fetching anything, so fewer are read
         val limited = limit != null && limit < threadIds.size
-        if (limited && !warnedForUnorderedOutputs) threadIds = threadIds.take(limit!!)
 
         // Step 2: Get the newest message of each thread.
         // Asking per thread costs two provider queries per conversation, which is most of the time on a slow
@@ -567,8 +565,11 @@ object SMSHelper {
                 yield(firstMessage[0])
             }
         }
-        // No dates for the threads (some phones): only the messages tell which conversations are newest
-        return if (limited && warnedForUnorderedOutputs) all.sortedByDescending { it.date }.take(limit!!) else all
+        // A limit keeps the conversations with the newest messages. The threads' own date can't tell: it is when a
+        // message was last stored, not its date (messages restored from a backup all get the restore time), and some
+        // phones don't give it at all. Reading every conversation's newest message is one indexed query; only the
+        // newest [limit] are sent.
+        return if (limited) all.sortedByDescending { it.date }.take(limit!!) else all
     }
 
     /**
