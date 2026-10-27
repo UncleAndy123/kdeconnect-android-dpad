@@ -538,6 +538,9 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="convert_to_mms_after" translatable="false">convert_to_mms_after</string>
     <string name="convert_to_mms_after_default" translatable="false">3</string>
     <string name="sms_conversations_to_computer" translatable="false">sms_conversations_to_computer</string>
+    <string name="sms_send_mms_to_computer" translatable="false">sms_send_mms_to_computer</string>
+    <string name="sms_send_mms_to_computer_title">Picture messages (MMS) on the computer</string>
+    <string name="sms_send_mms_to_computer_summary">Off: only text messages are synced, which is faster</string>
     <string name="sms_conversations_to_computer_title">Conversations sent to the computer</string>
     <string name="sms_conversations_to_computer_default" translatable="false">all</string>
     <string-array name="sms_conversations_to_computer_entries">
