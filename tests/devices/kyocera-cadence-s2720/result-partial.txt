@@ -3,11 +3,14 @@
   COVERED  03 add-devices-by-ip
   COVERED  04 add-device-dialog
   COVERED  05 trusted-networks
-  MISSED   06 about (could not reach: menu)
-  MISSED   07 not-paired ('Pair' not on screen)
-  MISSED   08 device ('Multimedia control' not on screen)
-  MISSED   09 device-options ('Plugin settings' not on screen)
-  MISSED   10 plugin-settings (could not reach: menu)
-  MISSED   13 keypad-mouse (could not reach: tile)
-  MISSED   23 sms-settings (could not reach: Conversations sent to the computer row)
-RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (5 covered, 7 missed; phases: firstrun device smssettings mouse)
+  COVERED  06 about
+  COVERED  07 not-paired
+  COVERED  08 device
+  COVERED  09 device-options
+  COVERED  10 plugin-settings
+  COVERED  13 keypad-mouse
+  COVERED  14 mouse-options
+  COVERED  15 compose-text
+  COVERED  23 sms-settings
+  COVERED  24 sms-conversation-limit
+RESULT kyocera-cadence-s2720 (240x320 @ 160, Android 7.1.1): PARTIAL (15 covered, 0 missed; phases: firstrun device smssettings mouse)
