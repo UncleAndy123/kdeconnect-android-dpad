@@ -26,8 +26,8 @@ adb root > /dev/null 2>&1; sleep 3; adb wait-for-device
 adb uninstall $PKG >> $log 2>&1
 adb install "$1" >> $log 2>&1; say "installed"
 setup() {
-  adb push $P/../../cadence-phone-setup.sh /data/local/tmp/ > /dev/null
-  adb shell sh /data/local/tmp/cadence-phone-setup.sh >> $log 2>&1
+  adb push $P/../../keypad-phone-setup.sh /data/local/tmp/ > /dev/null
+  adb shell sh /data/local/tmp/keypad-phone-setup.sh >> $log 2>&1
 }
 setup; say "setup done (includes the ahead-of-time compile)"
 say "pairing through the first-run phase"

@@ -44,7 +44,7 @@ Upstream already ran on Android 6 and up, but some features were switched off or
 - **Find my phone** prepares its ringtone only when the phone is rung, instead of holding a media player for the whole connection.
 - **Network discovery** (mDNS) runs for a minute after each network change or Refresh instead of all the time.
 
-## Keypad-only phones (e.g. Kyocera Cadence S2720)
+## Keypad-only phones (flip and candybar phones with no touchscreen)
 Everything below switches on automatically on phones with no touchscreen (or a real D-pad). Touch phones look and work exactly like upstream.
 
 - **Soft keys instead of on-screen buttons.** This works the same way as Vela.
@@ -80,8 +80,8 @@ Everything below switches on automatically on phones with no touchscreen (or a r
 - **T9 typing to the computer** works with multi-tap keyboards, and Backspace is passed through.
 - **Presentation remote:** OK toggles the pointer. The pointer button is hidden on phones without a gyroscope.
 - **Drawing tablet with the keypad.** On a phone without a touchscreen, the keypad moves a pen on the drawing pad: arrows or 2/4/6/8 move it (faster while held), OK or 5 puts the pen down or lifts it, \* switches between pen and eraser. The phone shows a preview of what you draw. It is on by default on keypad phones (upstream only enables it on tablets).
-- **KDE Connect keyboard works on keypad phones.** Android never shows an on-screen keyboard while a hardware keypad is in use, so this keyboard used to drop every key from the computer. On keypad phones it now types whenever a text box is focused. (The accessibility version needs no keyboard switch and is the one set up by `cadence-phone-setup.sh`.)
-- `cadence-phone-setup.sh` grants everything the app needs over USB, including the screens a keypad phone can't open: notification access, the accessibility service, battery exemption and permissions. It runs on the phone, so the two commands that start it work from Windows (Command Prompt or PowerShell), macOS and Linux alike, and it keeps other apps' accessibility services and notification listeners.
+- **KDE Connect keyboard works on keypad phones.** Android never shows an on-screen keyboard while a hardware keypad is in use, so this keyboard used to drop every key from the computer. On keypad phones it now types whenever a text box is focused. (The accessibility version needs no keyboard switch and is the one set up by `keypad-phone-setup.sh`.)
+- `keypad-phone-setup.sh` grants everything the app needs over USB, including the screens a keypad phone can't open: notification access, the accessibility service, battery exemption and permissions. It runs on the phone, so the two commands that start it work from Windows (Command Prompt or PowerShell), macOS and Linux alike, and it keeps other apps' accessibility services and notification listeners.
 
 ## Builds
 - Every push that changes the app builds release APKs for **arm64-v8a** and **armeabi-v7a** and publishes them as a GitHub release (a pre-release on branches other than the default).

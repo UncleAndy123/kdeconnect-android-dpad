@@ -1,14 +1,15 @@
 #!/system/bin/sh
 # One-time permission setup for KDE Connect (com.android.cts.kdeconnect) on a
-# phone with no touchscreen: the Kyocera Cadence S2720 (Android 7.1.1) and the
-# other keypad phones vela-dpad supports (Android 11).
+# phone with no touchscreen: the keypad phones this build supports (the Kyocera
+# Cadence S2720 on Android 7.1.1; the e4810, DuraXV, DuraXe, TCL Flip 2 and Sonim
+# XP3 / X320 on Android 11).
 #
 # This runs ON THE PHONE, so it works the same from Windows (Command Prompt or
 # PowerShell), macOS and Linux. Install the APK, plug the phone in with USB
 # debugging on, open a terminal in the folder with this file, then run:
 #
-#   adb push cadence-phone-setup.sh /data/local/tmp/
-#   adb shell sh /data/local/tmp/cadence-phone-setup.sh
+#   adb push keypad-phone-setup.sh /data/local/tmp/
+#   adb shell sh /data/local/tmp/keypad-phone-setup.sh
 #
 # Safe to run again (after a reinstall, say): it only adds what's missing and
 # keeps every other app's accessibility service and notification listener.

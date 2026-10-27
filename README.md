@@ -1,6 +1,6 @@
 # KDE Connect for keypad phones (com.android.cts.kdeconnect)
 
-A build of KDE Connect for Android that runs on **Android 7.1.1 phones with no touchscreen at all**, like the Kyocera Cadence S2720 flip phone. Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from the release build on a 240×320, 160 dpi emulator with no touchscreen, the same as the Cadence.
+A build of KDE Connect for Android for **phones with no touchscreen at all**: keypad and flip phones such as the Kyocera Cadence S2720 (Android 7.1.1), the Kyocera e4810, DuraXV and DuraXe, the TCL Flip 2 and the Sonim XP3 and X320 (Android 11). Every screen below was reached and used **with keys only**: the D-pad, OK, the two soft keys and Back. Nothing was tapped. The screenshots come from the release build on a 240×320, 160 dpi emulator with no touchscreen, the screen most of these phones have.
 
 The keypad experience follows [vela-dpad](https://github.com/alltechdev/vela-dpad):
 - **Soft keys:** the left key is **Options**; the right key is the screen's main action. Back is the phone's Back key. The soft-key bar is [Yapchik](https://github.com/theOnionsAreWatching/yapchik) by theOnionsAreWatching.
@@ -26,11 +26,11 @@ Touch phones look exactly like upstream KDE Connect. See [CHANGES-FROM-UPSTREAM.
 
 New models drop straight into the matrix: open an issue with the phone's name, screen resolution and Android version.
 
-**Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`cadence-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-dpad/master/cadence-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
+**Phone setup (once):** a keypad phone can't open some permission screens, so grant them over USB. Install the APK, turn on USB debugging, download [`keypad-phone-setup.sh`](https://raw.githubusercontent.com/alltechdev/kdeconnect-android-dpad/master/keypad-phone-setup.sh) and run these two commands in the folder you saved it to. They work the same in Windows Command Prompt, PowerShell, macOS and Linux:
 
 ```
-adb push cadence-phone-setup.sh /data/local/tmp/
-adb shell sh /data/local/tmp/cadence-phone-setup.sh
+adb push keypad-phone-setup.sh /data/local/tmp/
+adb shell sh /data/local/tmp/keypad-phone-setup.sh
 ```
 
 It keeps any other app's accessibility service and notification listener, and is safe to run again. It also compiles the app ahead of time, which makes it noticeably faster on a slow phone; an app update undoes that, so run the two commands again after updating. Updates and reboots keep everything it sets, but on Android 7 using **Force stop** on KDE Connect turns its accessibility service off (remote keyboard and mouse stop working), so run the two commands again after that. Clearing KDE Connect's data also takes back every permission it granted, so run them again after that too. Contacts are only shared after you say yes once on the phone: on the device screen, open **Contacts** under the plugins that need permissions and accept.

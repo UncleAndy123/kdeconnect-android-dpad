@@ -25,8 +25,8 @@ step "Android $(adb shell getprop ro.build.version.release | tr -d '\r'), instal
 adb uninstall $PKG > /dev/null 2>&1
 adb install "$apk" | tail -1
 adb shell pm path $PKG > /dev/null 2>&1 || { echo "install FAILED"; exit 1; }
-adb push $R/cadence-phone-setup.sh /data/local/tmp/ > /dev/null
-adb shell sh /data/local/tmp/cadence-phone-setup.sh | tail -3
+adb push $R/keypad-phone-setup.sh /data/local/tmp/ > /dev/null
+adb shell sh /data/local/tmp/keypad-phone-setup.sh | tail -3
 adb shell cmd package compile -m speed -f $PKG | tail -1
 echo "installed $(adb shell dumpsys package $PKG | grep -m1 versionName | tr -d ' \r')"
 for id in "$@"; do
