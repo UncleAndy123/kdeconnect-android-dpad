@@ -36,9 +36,19 @@ def lines():
         return f.readlines()
 
 
+LISTENERS = None  # the notification listeners setting as it was, restored on every start
+
+
 def set_pref(value):
     # The app's accessibility service restarts the app right after a force-stop, and a running app writes its own
     # copy of the preferences back over an edit: switch the service off first, and check the app stays stopped
+    # Android restarts the app right after a force-stop for its accessibility service AND its notification listener;
+    # a running app writes its own copy of the preferences back over an edit, so switch both off while writing
+    global LISTENERS
+    if LISTENERS is None:
+        LISTENERS = adb("shell", "settings", "get", "secure", "enabled_notification_listeners").strip()
+    others = ":".join(x for x in LISTENERS.split(":") if x and not x.startswith(PKG + "/") and x != "null")
+    adb("shell", "settings", "put", "secure", "enabled_notification_listeners", others or '""')
     adb("shell", "settings", "put", "secure", "enabled_accessibility_services", "")
     adb("shell", "am", "force-stop", PKG)
     time.sleep(3)
@@ -61,6 +71,8 @@ def set_pref(value):
 
 def start_and_connect():
     n = len(lines())
+    if LISTENERS:
+        adb("shell", "settings", "put", "secure", "enabled_notification_listeners", LISTENERS)
     adb("shell", "settings", "put", "secure", "enabled_accessibility_services",
         PKG + "/org.kde.kdeconnect.KdeConnectAccessibilityService")
     adb("shell", "am", "start", "-n", PKG + "/org.kde.kdeconnect.ui.MainActivity")
