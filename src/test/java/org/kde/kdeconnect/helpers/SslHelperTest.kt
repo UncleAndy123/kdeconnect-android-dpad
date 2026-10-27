@@ -108,4 +108,27 @@ class SSLHelperTest {
         Assert.assertEquals("ee061a75_e403_4ecc_9261_5ffe2722f698", commonName)
     }
 
+
+    @Test
+    fun commonNameOfAPlainName() {
+        Assert.assertEquals("abc_123", SslHelper.commonNameFromRfc2253("O=KDE,OU=KDE Connect,CN=abc_123"))
+        Assert.assertEquals("abc", SslHelper.commonNameFromRfc2253("CN=abc"))
+    }
+
+    @Test
+    fun commonNameLeftToTheParser() {
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("CN=a\\,b,O=KDE")) // escaped comma
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("CN=\"a,b\",O=KDE")) // quoted
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("CN=a+UID=b,O=KDE")) // multi-valued
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("CN=#0403616263,O=KDE")) // hex-encoded
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("O=KDE,OU=KDE Connect")) // none
+        Assert.assertNull(SslHelper.commonNameFromRfc2253("CN=a,CN=b")) // two
+    }
+
+    @Test
+    fun commonNameOfTheTestCertificate() {
+        sharedPreferences.edit().putString(certificateKey, certificateBase64).apply()
+        val cert = TrustedDevices.getDeviceCertificate(context, deviceId)
+        Assert.assertEquals("ee061a75_e403_4ecc_9261_5ffe2722f698", SslHelper.getCommonNameFromCertificate(cert))
+    }
 }

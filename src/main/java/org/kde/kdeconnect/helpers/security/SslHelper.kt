@@ -241,7 +241,22 @@ object SslHelper {
         return factory.generateCertificate(ByteArrayInputStream(certificateBytes))
     }
 
-    fun getCommonNameFromCertificate(cert: X509Certificate): String {
+    /**
+     * The certificate's common name (a KDE Connect device id). Plain names, which is what KDE Connect generates, are
+     * read from the RFC 2253 text: parsing them with BouncyCastle loaded its classes on the main thread at every app
+     * start (initialiseCertificate). Anything quoted, escaped, hex-encoded or multi-valued goes to BouncyCastle.
+     */
+    fun getCommonNameFromCertificate(cert: X509Certificate): String =
+        commonNameFromRfc2253(cert.getSubjectX500Principal().name) ?: commonNameWithBouncyCastle(cert)
+
+    /** The CN of a plain RFC 2253 name ("O=KDE,OU=KDE Connect,CN=abc"), or null when it needs a real parser */
+    internal fun commonNameFromRfc2253(name: String): String? {
+        if ('\\' in name || '"' in name || '+' in name || '#' in name) return null
+        val cns = name.split(',').filter { it.startsWith("CN=") }
+        return if (cns.size == 1 && cns[0].length > 3) cns[0].substring(3) else null
+    }
+
+    private fun commonNameWithBouncyCastle(cert: X509Certificate): String {
         val principal = cert.getSubjectX500Principal()
         val x500name = X500Name(principal.name)
         val rdn = x500name.getRDNs(BCStyle.CN).first()
