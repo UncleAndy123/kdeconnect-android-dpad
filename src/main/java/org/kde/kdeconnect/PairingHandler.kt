@@ -40,7 +40,9 @@ class PairingHandler(private val device: Device, private val callback: PairingCa
     }
 
     private val pairingJob = SupervisorJob()
-    private val pairingScope = CoroutineScope(Dispatchers.IO + pairingJob)
+    // Only pairing uses it (its timers): creating it set up the IO dispatcher on the main thread for every remembered
+    // device at app start
+    private val pairingScope by lazy { CoroutineScope(Dispatchers.IO + pairingJob) }
     private var pairingTimestamp = 0L
 
     fun packetReceived(np: NetworkPacket) {
