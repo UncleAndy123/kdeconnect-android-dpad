@@ -106,6 +106,12 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
             cursorView = null
         }
 
+        // The remote keyboard and mouse plugins need this service; a device that connected before it was turned on
+        // (e.g. setup re-run after an update) loaded without them, so load them now instead of at the next connection
+        KdeConnect.getInstance().devices.values
+            .filter { it.isPaired && it.isReachable }
+            .forEach { it.launchBackgroundReloadPluginsFromSettings() }
+
         val displayMetrics = DisplayMetrics()
         windowManager.defaultDisplay?.getMetrics(displayMetrics)
         x = displayMetrics.widthPixels / 2
