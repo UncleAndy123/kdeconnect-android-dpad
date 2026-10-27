@@ -10,8 +10,10 @@ kdeconnect.sms.messages packet. This sends one SMS through the stand-in desktop 
   - whether and when the phone echoed it back
 --restart: force-stop and restart the app between opening the window and sending (a low-memory phone
 kills the app in the background; the desktop doesn't ask for the conversations again on reconnect).
---simulate-no-store: play a phone that doesn't store SMS sent by other apps (the reporter's): delete the row
-Android stores as soon as it appears (root adb). The fix must then echo the message itself (negative _id).
+--simulate-no-store: play a phone that doesn't store SMS sent by other apps (the reporter's): a trigger in the
+SMS database (root adb + sqlite3) deletes the row the moment Android inserts it, so it is never there for the
+phone's observer or anyone else. The fix must then echo the message itself (negative _id). (Deleting it with
+`content delete` from the shell was too slow on the emulator: seconds per call, after the echo had gone out.)
 Every run also counts the echoes: more than one for the same text is a duplicate on the computer.
 Writes results/issue3-<label>.txt.
 """
@@ -89,25 +91,18 @@ adb("logcat", "-c")
 body = "issue3-%s-%d" % (label, int(time.time()))
 mark = len(lines())
 t0 = time.time()
-deleted = []
-
-
-def delete_stored():
-    t = time.time()
-    while time.time() - t < 40:
-        out = adb("shell", "content query --uri content://sms --projection _id --where \"body='%s'\"" % body)
-        for tok in out.split():
-            if tok.startswith("_id="):
-                adb("shell", "content delete --uri content://sms/%s" % tok[4:].rstrip(","))
-                deleted.append(round(time.time() - t0, 1))
-        time.sleep(0.2)
-
-
+DB = "/data/user_de/0/com.android.providers.telephony/databases/mmssms.db"
+TRIGGER = ("CREATE TRIGGER IF NOT EXISTS issue3_nostore AFTER INSERT ON sms WHEN new.body LIKE 'issue3nostore-%' "
+           "BEGIN DELETE FROM sms WHERE _id = new._id; END;")
 if nostore:
-    import threading
-    threading.Thread(target=delete_stored, daemon=True).start()
+    body = "issue3nostore-%s-%d" % (label, int(time.time()))
+    adb("shell", "sqlite3 %s \"%s\"" % (DB, TRIGGER))
+    have = adb("shell", "sqlite3 %s \"select name from sqlite_master where type='trigger' and name='issue3_nostore'\"" % DB)
+    if "issue3_nostore" not in have:
+        sys.exit("could not install the no-store trigger (adb root?)")
+t0 = time.time()
 send("kdeconnect.sms.request", {"version": 2, "addresses": [{"address": TO}], "messageBody": body})
-say("sent %r to %s through the stand-in%s" % (body, TO, " (deleting what Android stores)" if nostore else ""))
+say("sent %r to %s through the stand-in%s" % (body, TO, " (the SMS database drops it on insert)" if nostore else ""))
 
 
 def is_echo(r):
@@ -128,7 +123,7 @@ ids = [m.get("_id") for r in echoes if r.get("dir") == "phone->pc" and r["type"]
        for m in r["body"].get("messages", []) if m.get("body") == body]
 say("echoes of this text: %d (ids %s)" % (len(ids), ids))
 if nostore:
-    say("deleted Android's stored copy at: %s s" % (deleted or "never (it never appeared)"))
+    adb("shell", "sqlite3 %s \"DROP TRIGGER IF EXISTS issue3_nostore\"" % DB)
 say("SMS database row: %s" % in_db(body))
 other = [json.loads(l) for l in lines()[mark:]]
 other = [r["type"] for r in other if r.get("dir") == "phone->pc"]
@@ -136,12 +131,10 @@ say("other packets from the phone meanwhile: %s" % (", ".join(sorted(set(other))
 log = adb("logcat", "-d", "-s", "SENDING_MESSAGE:*", "Transaction:*", "SMSPlugin:*", "SmsMmsUtils:*", "AndroidRuntime:E")
 say("logcat:\n" + "\n".join(l for l in log.splitlines() if l.strip() and "beginning of" not in l)[-3000:])
 if nostore:
-    # The app's own echo has a negative _id. A positive one is Android's copy echoed in the moment before the
-    # script deleted it: an artefact of the simulation (a phone that doesn't store it never has that copy)
+    # The app's own echo has a negative _id; Android's copy never stays in the database, so nothing else can echo
     own = [i for i in ids if isinstance(i, int) and i < 0]
-    say("the app's own echo: %s; stored-copy echoes that slipped out before the delete: %d"
-        % ("yes" if own else "NO", len(ids) - len(own)))
-    verdict = "PASS" if len(own) == 1 else ("FAIL-DUPLICATE" if own else "FAIL")
+    say("the app's own echo: %s" % ("yes" if own else "NO"))
+    verdict = "PASS" if len(own) == 1 and len(ids) == 1 else ("FAIL-DUPLICATE" if len(ids) > 1 else "FAIL")
 else:
     verdict = "PASS" if echo and len(ids) == 1 else ("FAIL-DUPLICATE" if echo else "FAIL")
 say("%s ISSUE3 %s (restart=%s, simulate-no-store=%s)" % (label, verdict, restart, nostore))
