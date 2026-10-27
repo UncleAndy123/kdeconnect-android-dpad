@@ -306,8 +306,12 @@ class Device : PacketReceiver {
     }
 
     fun hidePairingNotification() {
+        // The id is made when the notification is shown, so 0 means this process showed none: skip the system call
+        // (the device screen calls this on every refresh, and every remembered device on start)
+        if (notificationId == 0) return
         context.getSystemService<NotificationManager>()
             ?.cancel(notificationId)
+        notificationId = 0
     }
 
     val isReachable: Boolean
