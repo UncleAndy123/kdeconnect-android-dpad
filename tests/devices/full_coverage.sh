@@ -172,8 +172,13 @@ cover_one() {
       mark 03 add-devices-by-ip "Add device" nofocus
       key SOFT_RIGHT; mark 04 add-device-dialog "Hostname or IP"; key BACK BACK
     else miss 03 add-devices-by-ip menu; key BACK; fi
+    # Back on a slow phone takes a moment: an Options press before the list is back is lost and every later step
+    # slips (it once landed keys in the Dialer), so wait for the list each time
+    wait_text "Connected devices"
     key SOFT_LEFT; if open_item "Trusted networks" 6; then mark 05 trusted-networks "Allow all"; key BACK; else miss 05 trusted-networks menu; key BACK; fi
+    wait_text "Connected devices"
     key SOFT_LEFT; if open_item "About" 6; then mark 06 about "Version"; key BACK; else miss 06 about menu; key BACK; fi
+    wait_text "Connected devices"
     find_focus Desktop 6; key DPAD_CENTER
     mark 07 not-paired "Pair" nofocus
     key SOFT_RIGHT                                         # Pair (the stand-in accepts)
