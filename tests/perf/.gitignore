@@ -1,7 +1,0 @@
-round-*.log
-fresh-install.log
-*-r[0-9]*.txt
-*.trace
-extra-*/
-uitour-*.log
-ui-*.txt
