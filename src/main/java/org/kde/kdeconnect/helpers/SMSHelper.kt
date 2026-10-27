@@ -48,6 +48,9 @@ object SMSHelper {
 
     val mConversationUri : Uri = "content://mms-sms/conversations?simple=true".toUri()
 
+    /** One row per conversation: its newest message (SMS or MMS), computed by the provider */
+    private val mConversationsFullUri: Uri = "content://mms-sms/conversations".toUri()
+
     private fun getCompleteConversationsUri(): Uri {
         // This glorious - but completely undocumented - content URI gives us all messages, both MMS and SMS,
         // in all conversations
@@ -524,7 +527,20 @@ object SMSHelper {
         return sequence {
             val remaining = LinkedHashSet(threadIds)
             if (remaining.isEmpty()) return@sequence
+            // Fastest: the message provider's own "newest message of every conversation" query (what Android's
+            // messaging app lists conversations with), one query computed with the database's indexes
             try {
+                val newest = newestFromConversationsUri(context, remaining)
+                for (thread in threadIds) {
+                    val message = newest[thread] ?: continue
+                    remaining.remove(thread)
+                    yield(message)
+                }
+            } catch (e: Exception) {
+                Log.e("SMSHelper", "The conversations query failed, scanning the message tables instead", e)
+            }
+            // Any conversation it didn't give (or a phone whose provider doesn't support it): scan, then ask per thread
+            if (remaining.isNotEmpty()) try {
                 scanNewestPerThread(context, remaining).forEach { yield(it) }
             } catch (e: Exception) {
                 Log.e("SMSHelper", "Scanning for the newest message of each thread failed, asking per thread", e)
@@ -547,6 +563,26 @@ object SMSHelper {
                 yield(firstMessage[0])
             }
         }
+    }
+
+    /**
+     * The newest message of each thread in [wanted], from content://mms-sms/conversations: one row per conversation
+     * (an SMS or an MMS row; MMS rows carry msg_box, which is how [rowToMessage] tells them apart).
+     */
+    private fun newestFromConversationsUri(context: Context, wanted: Set<ThreadID>): Map<ThreadID, Message> {
+        val result = HashMap<ThreadID, Message>()
+        val userPhoneNumbers = lazy { TelephonyHelper.getAllPhoneNumbers(context) }
+        context.contentResolver.query(mConversationsFullUri, null, null, null, null)?.use { cursor ->
+            val threadColumn = cursor.getColumnIndex(Message.THREAD_ID)
+            if (threadColumn < 0) return result
+            while (cursor.moveToNext()) {
+                if (cursor.isNull(threadColumn)) continue
+                val thread = ThreadID(cursor.getLong(threadColumn))
+                if (thread !in wanted || thread in result) continue
+                rowToMessage(cursor, context, userPhoneNumbers)?.let { result[thread] = it }
+            }
+        }
+        return result
     }
 
     /** How many messages [scanNewestPerThread] reads before leaving the remaining threads to per-thread queries */
