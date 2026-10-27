@@ -41,7 +41,17 @@ def lines():
         return f.readlines()
 
 
+LISTENERS = None  # the notification listeners setting as it was, restored on every start
+
+
 def set_pref(on):
+    # Android restarts the app right after a force-stop for its accessibility service AND its notification listener;
+    # a running app writes its own copy of the preferences back over an edit, so switch both off while writing
+    global LISTENERS
+    if LISTENERS is None:
+        LISTENERS = adb("shell", "settings", "get", "secure", "enabled_notification_listeners").strip()
+    others = ":".join(x for x in LISTENERS.split(":") if x and not x.startswith(PKG + "/") and x != "null")
+    adb("shell", "settings", "put", "secure", "enabled_notification_listeners", others or '""')
     adb("shell", "settings", "put", "secure", "enabled_accessibility_services", "")
     adb("shell", "am", "force-stop", PKG)
     time.sleep(3)
@@ -61,6 +71,8 @@ def set_pref(on):
 
 def start_and_connect():
     n = len(lines())
+    if LISTENERS:
+        adb("shell", "settings", "put", "secure", "enabled_notification_listeners", LISTENERS)
     adb("shell", "settings", "put", "secure", "enabled_accessibility_services",
         PKG + "/org.kde.kdeconnect.KdeConnectAccessibilityService")
     adb("shell", "am", "start", "-n", PKG + "/org.kde.kdeconnect.ui.MainActivity")
@@ -109,6 +121,8 @@ for v in values:
     c = start_and_connect()
     say("connected after %s s" % (None if c is None else round(c)))
     time.sleep(20)
+    kept = adb("shell", "grep", KEY, PREFS).strip()
+    say("setting after the app started: %s" % (kept or "GONE (the app overwrote it)"))
     mark = len(lines()); t0 = time.time()
     send("kdeconnect.sms.request_conversations", {})
     last, msgs, size = collect(t0, mark)
