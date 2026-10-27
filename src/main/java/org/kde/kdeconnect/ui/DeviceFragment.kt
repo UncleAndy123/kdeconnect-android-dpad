@@ -220,6 +220,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         refreshingCollected = false
         boundKeys = null
         firstControl = null
+        shownSignature = null
         mActivity?.let { KeypadSoftkeys.clear(it) }
         device?.apply {
             removePluginsChangedListener(pluginsChangedListener)
@@ -266,6 +267,14 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         device.hidePairingNotification()
 
         val content = binding.content
+        // Plugins load (and report "changed") several times while a device connects: when the screen would come out
+        // the same (same plugin instances, buttons and permission lists), keep the views instead of rebuilding them
+        val signature = if (device.pairStatus == PairingHandler.PairState.Paired && device.isReachable) pluginsSignature(device) else null
+        if (signature != null && signature == shownSignature && content.childCount > 0) {
+            displayBatteryInfoIfPossible()
+            return
+        }
+        shownSignature = signature
         val focusedTag = activity.currentFocus?.tag as? String
         content.removeAllViews()
         binding.refresh.isEnabled = false
@@ -330,6 +339,19 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         }
         firstControl = firstFocusable
         activity.invalidateOptionsMenu()
+    }
+
+    /** What the plugins screen shows, to tell whether a refresh would change it */
+    private var shownSignature: String? = null
+
+    private fun pluginsSignature(device: Device): String = buildString {
+        for (plugin in device.loadedPlugins.values) {
+            append(System.identityHashCode(plugin)).append(':')
+            for (button in plugin.getUiButtons()) append(button.name).append('/').append(button.iconRes).append(',')
+            append(';')
+        }
+        append('|').append(device.pluginsWithoutPermissions.keys.filter { device.isPluginEnabled(it) }.sorted())
+        append('|').append(device.pluginsWithoutOptionalPermissions.keys.filter { device.isPluginEnabled(it) }.sorted())
     }
 
     /** Plugin buttons in a grid, then the plugins that still need a permission. Returns the first button. */
