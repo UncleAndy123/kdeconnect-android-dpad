@@ -85,6 +85,7 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
 
     private var lastBroadcast: Long = 0
     @Volatile
+    @Volatile
     private var isStopped = true
 
     fun hasDevice(id: String): Boolean {
@@ -584,10 +585,14 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         setupUdpListener()
         setupTcpListener()
 
-        synchronized(mdnsDiscovery) {
-            mdnsDiscovery.startDiscovering()
-            if (TrustedNetworkHelper.isTrustedNetwork(context)) {
-                mdnsDiscovery.startAnnouncing()
+        // On a worker: the first mDNS call creates the NsdManager, which waits for the system's mDNS service
+        ThreadHelper.execute {
+            synchronized(mdnsDiscovery) {
+                if (isStopped) return@execute
+                mdnsDiscovery.startDiscovering()
+                if (TrustedNetworkHelper.isTrustedNetwork(context)) {
+                    mdnsDiscovery.startAnnouncing()
+                }
             }
         }
 
@@ -606,14 +611,17 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         setupTcpListener()
 
         broadcastUdpIdentityPacket(network)
-        synchronized(mdnsDiscovery) {
-            if (TrustedNetworkHelper.isTrustedNetwork(context)) {
-                mdnsDiscovery.startAnnouncing() // noop if already announcing
-            } else {
-                mdnsDiscovery.stopAnnouncing() // noop if already stopped
+        ThreadHelper.execute {
+            synchronized(mdnsDiscovery) {
+                if (isStopped) return@execute
+                if (TrustedNetworkHelper.isTrustedNetwork(context)) {
+                    mdnsDiscovery.startAnnouncing() // noop if already announcing
+                } else {
+                    mdnsDiscovery.stopAnnouncing() // noop if already stopped
+                }
+                mdnsDiscovery.stopDiscovering()
+                mdnsDiscovery.startDiscovering()
             }
-            mdnsDiscovery.stopDiscovering()
-            mdnsDiscovery.startDiscovering()
         }
     }
 

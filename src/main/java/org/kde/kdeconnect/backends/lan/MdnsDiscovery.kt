@@ -29,19 +29,20 @@ import org.kde.kdeconnect.helpers.normalizedMappedIpv4Address
 class MdnsDiscovery {
     private val context: Context
     private val lanLinkProvider: LanLinkProvider
-    private val mNsdManager: NsdManager
+    // Made on first use, off the main thread (LanLinkProvider starts mDNS on a worker): creating the NsdManager waits
+    // for its connection to the system's mDNS service, ~150-300 ms on a slow phone, which used to block app start.
+    private val mNsdManager: NsdManager by lazy { context.getSystemService(Context.NSD_SERVICE) as NsdManager }
     private var registrationListener: RegistrationListener? = null
     private var discoveryListener: DiscoveryListener? = null
-    private val multicastLock: MulticastLock
-    private val mNsdResolveQueue: NsdResolveQueue
+    private val multicastLock: MulticastLock by lazy {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        wifiManager.createMulticastLock("kdeConnectMdnsMulticastLock")
+    }
+    private val mNsdResolveQueue: NsdResolveQueue by lazy { NsdResolveQueue(mNsdManager) }
 
     constructor(context: Context, lanLinkProvider: LanLinkProvider) {
         this.context = context
         this.lanLinkProvider = lanLinkProvider
-        this.mNsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
-        this.mNsdResolveQueue = NsdResolveQueue(this.mNsdManager)
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        multicastLock = wifiManager.createMulticastLock("kdeConnectMdnsMulticastLock")
     }
 
     @Synchronized
