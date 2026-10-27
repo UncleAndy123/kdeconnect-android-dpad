@@ -18,12 +18,12 @@ which listens for every known soft-key code at once and has a press-your-keys ca
 |---|---|---|---|---|
 | Kyocera Cadence S2720 | 240x320 | 160 | 7.1.1 | [`kyocera-cadence-s2720/`](kyocera-cadence-s2720/) (grid of every frame) |
 | Kyocera e4810 | 240x320 | 160 | 11 | [`kyocera-e4810/`](kyocera-e4810/) (grid of every frame) |
-| Kyocera DuraXV | 240x320 | 160 | 11 | [`kyocera-duraxv/`](kyocera-duraxv/) (grid of every frame) |
-| TCL Flip 2 | 240x320 | 160 | 11 | [`tcl-flip-2/`](tcl-flip-2/) (grid of every frame) |
-| Sonim XP3 (XP3800) | 240x320 | 160 | 11 | [`sonim-xp3/`](sonim-xp3/) (grid of every frame) |
-| Kyocera DuraXe e4830 | 240x320 | **120** | 11 | [`kyocera-duraxe-e4830/`](kyocera-duraxe-e4830/) (grid of every frame) |
-| Sonim X320 (XP3 Plus 5G) | 480x854 | 320 | 11 | [`sonim-x320/`](sonim-x320/) (grid of every frame) |
-| Sonim X320 @ low density | 480x854 | **225** | 11 | [`sonim-x320-225/`](sonim-x320-225/) (grid of every frame) |
+| Kyocera DuraXV | 240x320 | 160 | 11 | not run yet (needs the Android 11 emulator) |
+| TCL Flip 2 | 240x320 | 160 | 11 | not run yet (needs the Android 11 emulator) |
+| Sonim XP3 (XP3800) | 240x320 | 160 | 11 | not run yet (needs the Android 11 emulator) |
+| Kyocera DuraXe e4830 | 240x320 | **120** | 11 | not run yet (needs the Android 11 emulator) |
+| Sonim X320 (XP3 Plus 5G) | 480x854 | 320 | 11 | not run yet (needs the Android 11 emulator) |
+| Sonim X320 @ low density | 480x854 | **225** | 11 | not run yet (needs the Android 11 emulator) |
 
 Every profile runs as its OWN row in the gate - no profile stands in for another, even at the same
 geometry.

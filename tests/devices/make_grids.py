@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Writes tests/devices/<device-id>/README.md for every phone folder: a grid of all its screenshots
-(3 per row, numbered captions), plus the last gate result if one was saved in <device-id>/result.txt.
+(3 per row, numbered captions), plus the last gate result if one was saved in <device-id>/result.txt (and the last partial run's,
+<device-id>/result-partial.txt).
 Run after every gate run (full_coverage.sh calls it at the end).
 
   python3 tests/devices/make_grids.py
@@ -45,6 +46,10 @@ def main():
         res = os.path.join(d, "result.txt")
         if os.path.exists(res):
             out += ["Last gate run:", "", "```", open(res).read().rstrip(), "```", ""]
+        part = os.path.join(d, "result-partial.txt")
+        if os.path.exists(part):
+            out += ["Last partial run (only some phases; its frames replace those phases' frames below):", "",
+                    "```", open(part).read().rstrip(), "```", ""]
         for sub in sorted(os.listdir(shots)):
             if os.path.isdir(os.path.join(shots, sub)):
                 out += ["## screenshots/%s" % sub, "", grid(os.path.join(shots, sub), "screenshots/" + sub)]
