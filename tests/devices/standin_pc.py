@@ -24,7 +24,7 @@ RECV = os.path.join(STATE, "received")
 DEVICE_ID = "standin_pc_0123456789abcdef0123456789"   # 36 chars, matches ^[a-zA-Z0-9_-]{32,38}$
 TCP_PORT = 1720            # in the phone's accepted range 1716..1764
 PAYLOAD_PORTS = [1763, 1764]
-PHONE_FWD = 1721           # host port forwarded to the phone's 1716
+PHONE_FWD = 1721           # host port forwarded to the phone's link port (phone_port())
 ADB = shutil.which("adb") or os.path.join(os.environ.get("ANDROID_HOME", "/opt/android-sdk"), "platform-tools", "adb")
 
 # Sample desktop data, sent when the phone asks for it
@@ -51,6 +51,18 @@ TYPES = ("kdeconnect.battery kdeconnect.battery.request kdeconnect.clipboard kde
          "kdeconnect.sms.request_attachment kdeconnect.sms.request_conversation kdeconnect.sms.request_conversations "
          "kdeconnect.systemvolume kdeconnect.systemvolume.request kdeconnect.telephony "
          "kdeconnect.telephony.request_mute").split()
+
+
+def phone_port():
+    """The app's link listener: the lowest TCP port listening in 1716-1738 on the phone (1739+ is SFTP's range)."""
+    try:
+        out = subprocess.run([ADB, "shell", "cat /proc/net/tcp /proc/net/tcp6"], capture_output=True, text=True,
+                             timeout=20).stdout
+        ports = sorted(int(f[1].rsplit(":", 1)[1], 16) for f in (l.split() for l in out.splitlines())
+                       if len(f) > 3 and f[3] == "0A" and ":" in f[1])
+        return next((p for p in ports if 1716 <= p <= 1738), 1716)
+    except Exception:
+        return 1716
 
 
 def identity():
@@ -139,8 +151,10 @@ class Peer:
         while True:
             if not self.connected.is_set():
                 try:
-                    # (re)create the forward each try, so a rebooted or swapped emulator is picked up
-                    subprocess.run([ADB, "forward", f"tcp:{PHONE_FWD}", "tcp:1716"], capture_output=True)
+                    # (re)create the forward each try, so a rebooted or swapped emulator is picked up. Forward to
+                    # the port the app really listens on: like upstream it takes the first free one from 1716 up,
+                    # and 1716 can still be held for a moment when the app restarts (it then uses 1717)
+                    subprocess.run([ADB, "forward", f"tcp:{PHONE_FWD}", f"tcp:{phone_port()}"], capture_output=True)
                     s = socket.create_connection(("127.0.0.1", PHONE_FWD), timeout=30)
                     s.sendall((json.dumps(identity()) + "\n").encode())
                     t = tls_context(server=True).wrap_socket(s, server_side=True)
