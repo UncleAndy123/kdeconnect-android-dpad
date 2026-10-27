@@ -66,10 +66,11 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
 
     private val customDeviceListener = OnSharedPreferenceChangeListener { _, key ->
         if (key == CustomDevicesActivity.KEY_CUSTOM_DEVICE_LIST_PREFERENCE) {
-            updateCustomDevicesList()
+            ThreadHelper.execute { updateCustomDevicesList() }
         }
     }
 
+    // Resolves every "add device by IP" entry (a host name waits on DNS): never on the main thread
     fun updateCustomDevicesList() {
         customDeviceAddresses = CustomDevicesActivity.getCustomDeviceList(context).flatMap {
             runCatching {
@@ -578,7 +579,6 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         //Log.i("KDE/LanLinkProvider", "onStart");
         isStopped = false
 
-        updateCustomDevicesList()
         customDevicePreferences.registerOnSharedPreferenceChangeListener(customDeviceListener)
 
         setupUdpListener()
@@ -595,7 +595,7 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
             }
         }
 
-        broadcastUdpIdentityPacket(null)
+        broadcastUdpIdentityPacket(null) // resolves the custom devices first, on its worker
     }
 
     override fun onNetworkChange(network: Network?) {
