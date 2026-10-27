@@ -10,6 +10,9 @@ kdeconnect.sms.messages packet. This sends one SMS through the stand-in desktop 
   - whether and when the phone echoed it back
 --restart: force-stop and restart the app between opening the window and sending (a low-memory phone
 kills the app in the background; the desktop doesn't ask for the conversations again on reconnect).
+--simulate-no-store: play a phone that doesn't store SMS sent by other apps (the reporter's): delete the row
+Android stores as soon as it appears (root adb). The fix must then echo the message itself (negative _id).
+Every run also counts the echoes: more than one for the same text is a duplicate on the computer.
 Writes results/issue3-<label>.txt.
 """
 import json, os, subprocess, sys, time
@@ -61,6 +64,7 @@ def in_db(body):
 
 label = sys.argv[1]
 restart = "--restart" in sys.argv
+nostore = "--simulate-no-store" in sys.argv
 out = []
 say = lambda s: (out.append(s), print(s, flush=True))
 
@@ -85,8 +89,25 @@ adb("logcat", "-c")
 body = "issue3-%s-%d" % (label, int(time.time()))
 mark = len(lines())
 t0 = time.time()
+deleted = []
+
+
+def delete_stored():
+    t = time.time()
+    while time.time() - t < 40:
+        out = adb("shell", "content query --uri content://sms --projection _id --where \"body='%s'\"" % body)
+        for tok in out.split():
+            if tok.startswith("_id="):
+                adb("shell", "content delete --uri content://sms/%s" % tok[4:].rstrip(","))
+                deleted.append(round(time.time() - t0, 1))
+        time.sleep(0.2)
+
+
+if nostore:
+    import threading
+    threading.Thread(target=delete_stored, daemon=True).start()
 send("kdeconnect.sms.request", {"version": 2, "addresses": [{"address": TO}], "messageBody": body})
-say("sent %r to %s through the stand-in" % (body, TO))
+say("sent %r to %s through the stand-in%s" % (body, TO, " (deleting what Android stores)" if nostore else ""))
 
 
 def is_echo(r):
@@ -100,14 +121,30 @@ if echo:
     for m in echo["body"].get("messages", []):
         if m.get("body") == body:
             say("  echoed as: type=%s thread=%s date=%s" % (m.get("type"), m.get("thread_id"), m.get("date")))
+if echo:
+    time.sleep(20)  # anything else for the same text (a duplicate) would come within seconds
+echoes = [json.loads(l) for l in lines()[mark:]]
+ids = [m.get("_id") for r in echoes if r.get("dir") == "phone->pc" and r["type"] == "kdeconnect.sms.messages"
+       for m in r["body"].get("messages", []) if m.get("body") == body]
+say("echoes of this text: %d (ids %s)" % (len(ids), ids))
+if nostore:
+    say("deleted Android's stored copy at: %s s" % (deleted or "never (it never appeared)"))
 say("SMS database row: %s" % in_db(body))
 other = [json.loads(l) for l in lines()[mark:]]
 other = [r["type"] for r in other if r.get("dir") == "phone->pc"]
 say("other packets from the phone meanwhile: %s" % (", ".join(sorted(set(other))) or "none"))
 log = adb("logcat", "-d", "-s", "SENDING_MESSAGE:*", "Transaction:*", "SMSPlugin:*", "SmsMmsUtils:*", "AndroidRuntime:E")
 say("logcat:\n" + "\n".join(l for l in log.splitlines() if l.strip() and "beginning of" not in l)[-3000:])
-verdict = "PASS" if echo else "FAIL"
-say("%s ISSUE3 %s (restart=%s)" % (label, verdict, restart))
+if nostore:
+    # The app's own echo has a negative _id. A positive one is Android's copy echoed in the moment before the
+    # script deleted it: an artefact of the simulation (a phone that doesn't store it never has that copy)
+    own = [i for i in ids if isinstance(i, int) and i < 0]
+    say("the app's own echo: %s; stored-copy echoes that slipped out before the delete: %d"
+        % ("yes" if own else "NO", len(ids) - len(own)))
+    verdict = "PASS" if len(own) == 1 else ("FAIL-DUPLICATE" if own else "FAIL")
+else:
+    verdict = "PASS" if echo and len(ids) == 1 else ("FAIL-DUPLICATE" if echo else "FAIL")
+say("%s ISSUE3 %s (restart=%s, simulate-no-store=%s)" % (label, verdict, restart, nostore))
 os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
-with open(os.path.join(HERE, "results", "issue3-%s%s.txt" % (label, "-restart" if restart else "")), "w") as f:
+with open(os.path.join(HERE, "results", "issue3-%s%s%s.txt" % (label, "-restart" if restart else "", "-nostore" if nostore else "")), "w") as f:
     f.write("\n".join(out) + "\n")

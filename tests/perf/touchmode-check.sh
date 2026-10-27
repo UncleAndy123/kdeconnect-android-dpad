@@ -7,8 +7,13 @@ P=$(cd "$(dirname "$0")" && pwd)
 PKG=com.android.cts.kdeconnect
 out=$P/results/touchmode-$1; mkdir -p $out
 adb shell am force-stop $PKG
-adb shell input tap 5 5; sleep 1
 tm=$(adb shell dumpsys window | grep -o "mInTouchMode=[a-z]*" | head -1)
+# A tap doesn't always switch a no-touchscreen emulator into touch mode; a reboot does (until the first key)
+[ "$tm" = "mInTouchMode=true" ] || { adb shell input tap 5 5; sleep 1; tm=$(adb shell dumpsys window | grep -o "mInTouchMode=[a-z]*" | head -1); }
+if [ "$tm" != "mInTouchMode=true" ]; then
+  echo "$1 TOUCHMODE INVALID (not in touch mode before launch: $tm; reboot the emulator and run this before any key)" | tee $out/result.txt
+  exit 1
+fi
 adb shell am start -n $PKG/org.kde.kdeconnect.ui.MainActivity > /dev/null
 sleep 20
 f=$(python3 $P/../devices/ui.py focus 2>/dev/null | head -1)
