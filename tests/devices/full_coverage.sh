@@ -12,7 +12,7 @@
 #   bash tests/devices/full_coverage.sh all
 #   PHASES="media mouse" bash tests/devices/full_coverage.sh sonim-x320   # re-capture only some surfaces
 #
-# Phases: firstrun device media mouse runcommand findmyphone tablet presenter settings share.
+# Phases: firstrun device media mouse runcommand findmyphone tablet presenter settings share smssettings.
 # A partial run reports PARTIAL, not a verdict - only a full run (no PHASES) can call a phone FULLY COVERED.
 # RULE: every NEW keypad screen adds its surfaces as its OWN phase here (own numbered frames).
 #
@@ -133,7 +133,7 @@ cover_one() {
   geom="$(printf '%s\n' "$DEVICES" | awk -F'|' -v id="$id" '$1==id{print $2}')"
   dens="${DENS:-$(printf '%s\n' "$DEVICES" | awk -F'|' -v id="$id" '$1==id{print $3}')}"
   [ -z "$geom" ] && { echo "unknown device '$id'"; return 1; }
-  local ALLPHASES="firstrun device media mouse runcommand findmyphone tablet presenter settings share"
+  local ALLPHASES="firstrun device media mouse runcommand findmyphone tablet presenter settings share smssettings"
   local phases="${PHASES:-$ALLPHASES}" full=0; [ "$phases" = "$ALLPHASES" ] && full=1
   local cur_phase="" missed_phases=""
   phase() { case " $phases " in *" $1 "*) cur_phase="$1"; return 0;; *) return 1;; esac; }
@@ -242,6 +242,20 @@ cover_one() {
     $ADB shell am start -W -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT hello \
       -n "$PKG/org.kde.kdeconnect.plugins.share.ShareActivity" >/dev/null 2>&1
     mark 22 share "Desktop"; key BACK
+  fi
+
+  # The SMS plugin's own settings page (Plugin settings > the "Send SMS" row's name half) and its
+  # "Conversations sent to the computer" choice (issue #4)
+  if phase smssettings; then
+    to_device; key SOFT_LEFT
+    if open_item "Plugin settings" 8 && find_focus "Send SMS" 40; then
+      key DPAD_CENTER
+      if find_focus "Conversations sent to the computer" 10; then
+        mark 23 sms-settings "Conversations sent to the computer"
+        key DPAD_CENTER; mark 24 sms-conversation-limit "Newest 20"; key BACK
+      else miss 23 sms-settings "Conversations sent to the computer row"; fi
+      key BACK BACK
+    else miss 23 sms-settings "Send SMS in Plugin settings"; key BACK; fi
   fi
 
   local verdict

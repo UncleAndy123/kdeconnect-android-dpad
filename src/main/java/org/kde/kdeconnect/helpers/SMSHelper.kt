@@ -449,9 +449,10 @@ object SMSHelper {
      * Otherwise ordering is undefined.
      *
      * @param context android.content.Context running the request
+     * @param limit only the newest [limit] conversations (null: all)
      * @return Non-blocking iterable of the first message in each conversation
      */
-    fun getConversations(context: Context): Sequence<Message> {
+    fun getConversations(context: Context, limit: Int? = null): Sequence<Message> {
 
         // Used to avoid spewing logs in case there is an overall problem with fetching thread IDs
         var warnedForNullThreadIDs = false
@@ -518,13 +519,14 @@ object SMSHelper {
                 .sortedWith { left: Pair<ThreadID, Long>, right: Pair<ThreadID, Long> -> right.second.compareTo(left.second) }
                 .map { threadTimestampPairElement: Pair<ThreadID, Long> -> threadTimestampPairElement.first }
         }
+        val limited = limit != null && limit < threadIds.size
 
         // Step 2: Get the newest message of each thread.
         // Asking per thread costs two provider queries per conversation, which is most of the time on a slow
         // phone. Instead walk the SMS and MMS tables newest-first, side by side, and take the first message seen
         // in each thread - one query each, and conversations come out most-recent first. A thread not reached
         // within SCAN_LIMIT messages (a long-silent conversation under a heavy texter) is then asked for directly.
-        return sequence {
+        val all = sequence {
             val remaining = LinkedHashSet(threadIds)
             if (remaining.isEmpty()) return@sequence
             // Fastest: the message provider's own "newest message of every conversation" query (what Android's
@@ -563,6 +565,11 @@ object SMSHelper {
                 yield(firstMessage[0])
             }
         }
+        // A limit keeps the conversations with the newest messages. The threads' own date can't tell: it is when a
+        // message was last stored, not its date (messages restored from a backup all get the restore time), and some
+        // phones don't give it at all. Reading every conversation's newest message is one indexed query; only the
+        // newest [limit] are sent.
+        return if (limited) all.sortedByDescending { it.date }.take(limit!!) else all
     }
 
     /**

@@ -178,8 +178,10 @@ object KeypadSoftkeys {
             override fun onActivityResumed(activity: Activity) {
                 if (!isKeypadDevice(activity)) return
                 if (focusRings[activity] == null) {
-                    focusRings[activity] = ViewFocusRing(activity).also { it.install() }
+                    val window = activity.window ?: return
+                    focusRings[activity] = ViewFocusRing(window).also { it.install() }
                     watchModals(activity)
+                    ringDialogs(activity)
                 }
                 updateActionBar(activity)
             }
@@ -256,6 +258,20 @@ object KeypadSoftkeys {
      * A modal dialog is its own window: the soft keys go to it, so a bar behind its scrim would be
      * inert. Hide the bar while one is up; its buttons + BACK answer it. The Options menu keeps it.
      */
+    /**
+     * A dialog fragment (every settings choice, e.g. "Convert to MMS") is its own window, outside the activity's
+     * ring: give each one its own ring when it opens.
+     */
+    private fun ringDialogs(activity: Activity) {
+        val fm = (activity as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager ?: return
+        fm.registerFragmentLifecycleCallbacks(object : androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+            override fun onFragmentStarted(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment) {
+                val window = (f as? androidx.fragment.app.DialogFragment)?.dialog?.window ?: return
+                ViewFocusRing(window).install()
+            }
+        }, true)
+    }
+
     private fun watchModals(activity: Activity) {
         activity.window?.decorView?.viewTreeObserver?.addOnWindowFocusChangeListener { hasFocus ->
             val resumed = (activity as? ComponentActivity)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) ?: true
