@@ -275,6 +275,8 @@ class CustomDevicesActivity : KdeActivity() {
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
                 isFocusable = true
+                // Keypad phones start in touch mode until their first key press: stay focusable then too
+                isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
                 isClickable = true
                 setBackgroundColor(ViewBuilders.color(ctx, MR.attr.colorSurface))
                 foreground = ViewBuilders.selectableBackground(ctx)

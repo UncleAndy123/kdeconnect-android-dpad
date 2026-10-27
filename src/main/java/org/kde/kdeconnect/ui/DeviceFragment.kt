@@ -220,6 +220,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         refreshingCollected = false
         boundKeys = null
         firstControl = null
+        shownSignature = null
         mActivity?.let { KeypadSoftkeys.clear(it) }
         device?.apply {
             removePluginsChangedListener(pluginsChangedListener)
@@ -249,8 +250,10 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
             }
         }
         with(requireView()) {
-            // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus
-            if (!isInTouchMode) return
+            // In non-touch (D-pad) mode a focused root swallows navigation; let the content take focus. Keypad
+            // phones too, even in touch mode (they start in it until their first key press): the ring would sit on
+            // the whole page
+            if (!isInTouchMode || KeypadSoftkeys.isKeypadDevice(context)) return
             isFocusableInTouchMode = true
             requestFocus()
         }
@@ -266,6 +269,14 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         device.hidePairingNotification()
 
         val content = binding.content
+        // Plugins load (and report "changed") several times while a device connects: when the screen would come out
+        // the same (same plugin instances, buttons and permission lists), keep the views instead of rebuilding them
+        val signature = if (device.pairStatus == PairingHandler.PairState.Paired && device.isReachable) pluginsSignature(device) else null
+        if (signature != null && signature == shownSignature && content.childCount > 0) {
+            displayBatteryInfoIfPossible()
+            return
+        }
+        shownSignature = signature
         val focusedTag = activity.currentFocus?.tag as? String
         content.removeAllViews()
         binding.refresh.isEnabled = false
@@ -332,6 +343,19 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         activity.invalidateOptionsMenu()
     }
 
+    /** What the plugins screen shows, to tell whether a refresh would change it */
+    private var shownSignature: String? = null
+
+    private fun pluginsSignature(device: Device): String = buildString {
+        for (plugin in device.loadedPlugins.values) {
+            append(System.identityHashCode(plugin)).append(':')
+            for (button in plugin.getUiButtons()) append(button.name).append('/').append(button.iconRes).append(',')
+            append(';')
+        }
+        append('|').append(device.pluginsWithoutPermissions.keys.filter { device.isPluginEnabled(it) }.sorted())
+        append('|').append(device.pluginsWithoutOptionalPermissions.keys.filter { device.isPluginEnabled(it) }.sorted())
+    }
+
     /** Plugin buttons in a grid, then the plugins that still need a permission. Returns the first button. */
     private fun addPluginsScreen(content: LinearLayout, device: Device): View? {
         val context = requireContext()
@@ -385,6 +409,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         return MaterialCardView(context, null, com.google.android.material.R.attr.materialCardViewFilledStyle).apply {
             tag = "plugin:" + button.name
             isFocusable = true
+            // Keypad phones start in touch mode until their first key press: stay focusable then too
+            isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
             isClickable = true
             contentDescription = button.name
             setOnClickListener { mActivity?.let { button.onClick(it) } }
@@ -426,6 +452,8 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                 setTextColor(color(com.google.android.material.R.attr.colorOnSurface))
                 setPadding(dp(28), dp(12), dp(16), dp(12))
                 isFocusable = true
+                // Keypad phones start in touch mode until their first key press: stay focusable then too
+                isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
                 isClickable = true
                 setBackgroundResource(attrRes(android.R.attr.selectableItemBackground))
                 setOnClickListener { action(plugin) }

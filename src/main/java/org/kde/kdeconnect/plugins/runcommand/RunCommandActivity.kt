@@ -203,6 +203,8 @@ class RunCommandActivity : KdeActivity() {
         orientation = LinearLayout.VERTICAL
         tag = command.key
         isFocusable = true
+        // Keypad phones start in touch mode until their first key press: stay focusable then too
+        isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
         isClickable = true
         isLongClickable = true
         background = ViewBuilders.selectableBackground(context)
@@ -248,6 +250,8 @@ class RunCommandActivity : KdeActivity() {
         val size = dp(this, 48)
         val stop = FrameLayout(this).apply {
             isFocusable = true
+            // Keypad phones start in touch mode until their first key press: stay focusable then too
+            isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
             isClickable = true
             contentDescription = getString(R.string.runcommand_stop)
             background = ViewBuilders.selectableBackground(context, borderless = true)

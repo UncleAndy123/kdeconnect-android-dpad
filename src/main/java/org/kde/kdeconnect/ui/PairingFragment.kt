@@ -227,6 +227,8 @@ class PairingFragment : BaseFragment<PairingListBinding>() {
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             if (onClick != null) {
                 isFocusable = true
+                // Keypad phones start in touch mode until their first key press: stay focusable then too
+                isFocusableInTouchMode = org.kde.kdeconnect.ui.keypad.KeypadSoftkeys.isKeypadDevice(context)
                 isClickable = true
                 setBackgroundResource(attrRes(android.R.attr.selectableItemBackground))
                 setOnClickListener { onClick() }
