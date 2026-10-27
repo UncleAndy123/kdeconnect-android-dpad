@@ -10,6 +10,7 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -118,7 +119,7 @@ object SmsMmsUtils {
      * @param subID         Note that here subID is of type int and not long because klinker library requires it as int
      * I don't really know the exact reason why they implemented it as int instead of long
      */
-    fun sendMessage(context: Context, textMessage: String?, attachedFiles: List<SMSHelper.Attachment>, addressList: MutableList<SMSHelper.Address>, subID: Int) {
+    fun sendMessage(context: Context, textMessage: String?, attachedFiles: List<SMSHelper.Attachment>, addressList: MutableList<SMSHelper.Address>, subID: Int, sentReceiver: Intent? = null) {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
         val sendingPhoneNumber = getSendingPhoneNumber(context, subID)
@@ -158,6 +159,8 @@ object SmsMmsUtils {
                 sendMmsMessageNative(context, message, settings)
             } else {
                 Log.v(SENDING_MESSAGE, "Sending new SMS")
+                // Told when it has gone out, to check the phone stored it (see SentSmsReceiver)
+                if (sentReceiver != null) transaction.setExplicitBroadcastForSentSms(sentReceiver)
                 transaction.sendNewMessage(message, Transaction.NO_THREAD_ID)
             }
             // TODO: Notify other end

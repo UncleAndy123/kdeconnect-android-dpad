@@ -913,6 +913,29 @@ object SMSHelper {
     }
 
     /**
+     * The conversation (thread) a message to these addresses belongs to: the thread of the newest stored message to
+     * the (single) address, else what Android gives for the address set. [ThreadID.invalidThreadId] if neither works.
+     */
+    fun threadIdFor(context: Context, addresses: List<String>): ThreadID {
+        if (addresses.size == 1) {
+            try {
+                context.contentResolver.query(
+                    Telephony.Sms.CONTENT_URI, arrayOf(Telephony.Sms.THREAD_ID),
+                    "${Telephony.Sms.ADDRESS} = ?", arrayOf(addresses[0]), "${Telephony.Sms.DATE} DESC LIMIT 1"
+                )?.use { if (it.moveToFirst()) return ThreadID(it.getLong(0)) }
+            } catch (e: Exception) {
+                Log.w("SMSHelper", "Looking up the thread of ${addresses[0]}", e)
+            }
+        }
+        return try {
+            ThreadID(Telephony.Threads.getOrCreateThreadId(context, addresses.toSet()))
+        } catch (e: Exception) {
+            Log.w("SMSHelper", "getOrCreateThreadId", e)
+            ThreadID.invalidThreadId
+        }
+    }
+
+    /**
      * converts a given JsonArray into List<Address>
     </Address> */
     fun jsonArrayToAddressList(jsonArray: JsonArray): List<Address> {
