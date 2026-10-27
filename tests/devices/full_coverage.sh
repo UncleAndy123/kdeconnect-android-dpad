@@ -200,7 +200,7 @@ cover_one() {
     if tile "Remote input"; then
       mark 13 keypad-mouse "Options"
       key SOFT_LEFT; mark 14 mouse-options "Compose"
-      if open_item "Compose" 8; then mark 15 compose-text "Send"; key BACK; else miss 15 compose-text menu; key BACK; fi
+      if open_item "Compose text" 8; then mark 15 compose-text "Send"; key BACK; else miss 15 compose-text menu; key BACK; fi
       key BACK
     else miss 13 keypad-mouse tile; fi
   fi
