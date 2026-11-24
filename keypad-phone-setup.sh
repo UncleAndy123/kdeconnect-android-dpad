@@ -49,6 +49,12 @@ cmd notification allow_listener $LISTENER > /dev/null 2>&1 || append_secure enab
 append_secure enabled_accessibility_services $PKG/org.kde.kdeconnect.KdeConnectAccessibilityService
 settings put secure accessibility_enabled 1
 
+# Texts sent from the computer: save them so they show in the phone's own SMS app (Kyocera Android 7 needs this)
+appops set $PKG WRITE_SMS allow
+
+# Automatic clipboard sync on Android 10+ (reads the system log to notice clipboard changes)
+pm grant $PKG android.permission.READ_LOGS > /dev/null 2>&1
+
 # Floating clipboard button / overlays
 appops set $PKG SYSTEM_ALERT_WINDOW allow
 
