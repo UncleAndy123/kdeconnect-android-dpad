@@ -24,6 +24,11 @@ import org.kde.kdeconnect.KdeConnect
  * some phones don't do it (issue #3: the message reaches the recipient but never shows on the computer, nor in
  * the phone's own SMS app). So once the message has gone out, look for it; if the phone didn't store it, send
  * the computer the sent message ourselves.
+ *
+ * Some phones (e.g. Kyocera on Android 7) never store it, so it is also missing from the phone's own SMS app. In
+ * that case write it to the SMS database ourselves. Android only lets a non-default SMS app do that once it has
+ * been allowed to, once, over adb:  adb shell appops set com.android.cts.kdeconnect WRITE_SMS allow
+ * Without that, Android silently drops the write and only the computer gets the message.
  */
 class SentSmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -35,12 +40,13 @@ class SentSmsReceiver : BroadcastReceiver() {
         val body = intent.getStringExtra(EXTRA_BODY) ?: return
         val addresses = intent.getStringArrayExtra(EXTRA_ADDRESSES) ?: return
         val sentAt = intent.getLongExtra(EXTRA_SENT_AT, System.currentTimeMillis())
+        val subId = intent.getIntExtra(EXTRA_SUB_ID, -1)
         val messageUri = intent.getStringExtra("message_uri").orEmpty() // set by the SMS library when it could store it
         val app = context.applicationContext
         val pending = goAsync()
         Thread {
             try {
-                check(app, deviceId, body, addresses, sentAt, messageUri)
+                check(app, deviceId, body, addresses, sentAt, subId, messageUri)
             } catch (e: Exception) {
                 Log.e(TAG, "Checking a sent SMS", e)
             } finally {
@@ -49,7 +55,7 @@ class SentSmsReceiver : BroadcastReceiver() {
         }.start()
     }
 
-    private fun check(context: Context, deviceId: String, body: String, addresses: Array<String>, sentAt: Long, messageUri: String) {
+    private fun check(context: Context, deviceId: String, body: String, addresses: Array<String>, sentAt: Long, subId: Int, messageUri: String) {
         if (messageUri.isNotEmpty() && messageUri != "content://sms/0") {
             // The library stored it (as "outbox"); mark it sent, as the library's own receiver would have
             try {
@@ -66,9 +72,45 @@ class SentSmsReceiver : BroadcastReceiver() {
             if (System.currentTimeMillis() >= deadline) break
             Thread.sleep(500)
         }
+        // Not stored by Android: store it ourselves, so the phone's SMS app shows it (the computer then gets it as usual)
+        if (store(context, body, addresses, sentAt, subId)) return
         Log.i(TAG, "Sent SMS not in the SMS database: echoing it to the computer ourselves")
         val plugin = KdeConnect.getInstance().getDevice(deviceId)?.getPlugin<SMSPlugin>() ?: return
         plugin.echoUnstoredSentMessage(body, addresses.toList(), sentAt)
+    }
+
+    /** Writes the sent message to the SMS database, one row per recipient. True if Android kept it. */
+    private fun store(context: Context, body: String, addresses: Array<String>, sentAt: Long, subId: Int): Boolean {
+        var stored = false
+        for (address in addresses) {
+            val values = ContentValues().apply {
+                put(Telephony.Sms.ADDRESS, address)
+                put(Telephony.Sms.BODY, body)
+                put(Telephony.Sms.DATE, sentAt)
+                put(Telephony.Sms.DATE_SENT, sentAt)
+                put(Telephony.Sms.READ, 1)
+                put(Telephony.Sms.SEEN, 1)
+                put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT)
+                if (subId >= 0) put(Telephony.Sms.SUBSCRIPTION_ID, subId)
+            }
+            val uri = try {
+                context.contentResolver.insert(Telephony.Sms.Sent.CONTENT_URI, values)
+            } catch (e: Exception) {
+                // Some phones reject the subscription column: try once without it
+                Log.w(TAG, "Could not store the sent SMS", e)
+                try {
+                    values.remove(Telephony.Sms.SUBSCRIPTION_ID)
+                    context.contentResolver.insert(Telephony.Sms.Sent.CONTENT_URI, values)
+                } catch (e2: Exception) {
+                    Log.w(TAG, "Could not store the sent SMS", e2)
+                    null
+                }
+            }
+            // Android answers a write it refused (no WRITE_SMS app-op) with content://sms/0 or similar, not an error
+            if (uri != null && (uri.lastPathSegment?.toLongOrNull() ?: 0L) > 0L) stored = true
+        }
+        if (!stored) Log.i(TAG, "Android refused to store the sent SMS; allow it with: adb shell appops set ${context.packageName} WRITE_SMS allow")
+        return stored || isStored(context, body, sentAt)
     }
 
     private fun isStored(context: Context, body: String, sentAt: Long): Boolean = try {
@@ -90,12 +132,13 @@ class SentSmsReceiver : BroadcastReceiver() {
         const val EXTRA_BODY = "kdeconnect.sms.sent.body"
         const val EXTRA_ADDRESSES = "kdeconnect.sms.sent.addresses"
         const val EXTRA_SENT_AT = "kdeconnect.sms.sent.at"
+        const val EXTRA_SUB_ID = "kdeconnect.sms.sent.subid"
         private const val STORE_WAIT_MS = 5_000L
         private const val CLOCK_SLACK_MS = 120_000L
         private val handled = LinkedHashSet<String>()
 
         /** The intent the SMS library sends (as a broadcast) when the message has gone out */
-        fun intent(context: Context, deviceId: String, body: String, addresses: List<String>): Intent {
+        fun intent(context: Context, deviceId: String, body: String, addresses: List<String>, subId: Int = -1): Intent {
             val now = System.currentTimeMillis()
             return Intent(context, SentSmsReceiver::class.java)
                 .putExtra(EXTRA_TOKEN, "$deviceId:$now:${body.hashCode()}")
@@ -103,6 +146,7 @@ class SentSmsReceiver : BroadcastReceiver() {
                 .putExtra(EXTRA_BODY, body)
                 .putExtra(EXTRA_ADDRESSES, addresses.toTypedArray())
                 .putExtra(EXTRA_SENT_AT, now)
+                .putExtra(EXTRA_SUB_ID, subId)
         }
     }
 }

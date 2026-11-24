@@ -219,7 +219,7 @@ class SMSPlugin : Plugin() {
 
             // A plain SMS: check it was stored once it has gone out, so the computer shows it (issue #3)
             val sentReceiver = if (attachedFiles.isEmpty()) {
-                SentSmsReceiver.intent(context, device.deviceId, textMessage, addressList.map { it.address })
+                SentSmsReceiver.intent(context, device.deviceId, textMessage, addressList.map { it.address }, subID.toInt())
             } else null
             sendMessage(context, textMessage, attachedFiles, addressList.toMutableList(), subID.toInt(), sentReceiver)
 
