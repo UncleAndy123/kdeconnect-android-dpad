@@ -49,9 +49,13 @@ jobs:
       - name: Release key (optional)
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            # Tolerate pasted secrets: CRLF/spaces, and certutil's -----BEGIN/END----- lines
+            printf '%s\n' "$KEYSTORE_BASE64" | grep -v -- '-----' | tr -d ' \t\r\n"' | base64 -d > "$RUNNER_TEMP/release.jks"
+            keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$RELEASE_KEYSTORE_PASSWORD" > /dev/null \
+              || { echo "::error::Keystore decoded but keytool can't open it with RELEASE_KEYSTORE_PASSWORD"; exit 1; }
             echo "RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           else
             echo "No RELEASE_KEYSTORE_BASE64 secret: signing with the repo debug key"
