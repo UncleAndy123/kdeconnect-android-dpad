@@ -26,6 +26,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
@@ -43,6 +44,7 @@ import org.kde.kdeconnect.helpers.CreateFileResultContract
 import org.kde.kdeconnect.helpers.DeviceHelper
 import org.kde.kdeconnect.helpers.DeviceHelper.getDeviceName
 import org.kde.kdeconnect.helpers.NotificationHelper
+import org.kde.kdeconnect.helpers.UpdateChecker
 import org.kde.kdeconnect.ui.ThemeUtil.applyTheme
 import org.kde.kdeconnect_tp.BuildConfig
 import org.kde.kdeconnect_tp.R
@@ -68,6 +70,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             devicesByIpPref(context),
             bluetoothSupportPref(context),
             exportLogsPref(context),
+            updatePref(context),
             moreSettingsPref(context),
         ).forEach(screen::addPreference)
 
@@ -291,6 +294,69 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 }
             }
         }
+
+    private var updateBusy = false
+
+    private fun updatePref(context: Context) = Preference(context).apply {
+        isPersistent = false
+        setTitle(R.string.settings_check_updates)
+        summary = getString(R.string.settings_check_updates_current, BuildConfig.VERSION_NAME)
+        onPreferenceClickListener = Preference.OnPreferenceClickListener { pref ->
+            if (!updateBusy) checkForUpdate(pref)
+            true
+        }
+    }
+
+    private fun checkForUpdate(pref: Preference) {
+        updateBusy = true
+        pref.setSummary(R.string.settings_check_updates_checking)
+        lifecycleScope.launch {
+            try {
+                val update = UpdateChecker.check()
+                if (update == null) {
+                    pref.summary = getString(R.string.settings_check_updates_none, BuildConfig.VERSION_NAME)
+                    updateBusy = false
+                    return@launch
+                }
+                pref.summary = getString(R.string.settings_check_updates_available, update.version)
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(getString(R.string.settings_check_updates_available, update.version))
+                    .setMessage(update.notes.take(1500))
+                    .setPositiveButton(R.string.settings_update_install) { _, _ -> downloadAndInstall(pref, update) }
+                    .setNegativeButton(R.string.cancel) { _, _ -> updateBusy = false }
+                    .setOnCancelListener { updateBusy = false }
+                    .show()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (isAdded) pref.summary = getString(R.string.settings_check_updates_failed, e.message ?: e.javaClass.simpleName)
+                updateBusy = false
+            }
+        }
+    }
+
+    private fun downloadAndInstall(pref: Preference, update: UpdateChecker.Update) {
+        val context = requireContext().applicationContext
+        if (!UpdateChecker.ensureInstallAllowed(requireContext())) {
+            // The user is sent to the "install unknown apps" setting; tapping again afterwards continues
+            pref.setSummary(R.string.settings_update_allow_install)
+            updateBusy = false
+            return
+        }
+        lifecycleScope.launch {
+            try {
+                val apk = UpdateChecker.download(context, update) { pct ->
+                    if (isAdded) pref.summary = getString(R.string.settings_update_downloading, pct)
+                }
+                if (isAdded) pref.summary = getString(R.string.settings_check_updates_available, update.version)
+                UpdateChecker.install(context, apk)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (isAdded) pref.summary = getString(R.string.settings_check_updates_failed, e.message ?: e.javaClass.simpleName)
+            } finally {
+                updateBusy = false
+            }
+        }
+    }
 
     private fun moreSettingsPref(context: Context) = Preference(context).apply {
         isPersistent = false

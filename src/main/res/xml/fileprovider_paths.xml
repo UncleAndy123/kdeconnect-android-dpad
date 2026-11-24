@@ -11,4 +11,5 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
         name="external_files"
         path="." />
     <external-path name="images" path="Android/data/com.android.cts.kdeconnect/files/Pictures" />
+    <cache-path name="updates" path="updates/" />
 </paths>
