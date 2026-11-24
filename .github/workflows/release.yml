@@ -52,8 +52,13 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            # Tolerate pasted secrets: CRLF/spaces, and certutil's -----BEGIN/END----- lines
-            printf '%s\n' "$KEYSTORE_BASE64" | grep -v -- '-----' | tr -d ' \t\r\n"' | base64 -d > "$RUNNER_TEMP/release.jks"
+            # Tolerate pasted secrets: certutil's -----BEGIN/END----- lines, URL-safe alphabet, and any stray
+            # characters (CRLF, spaces, quotes, BOM...). Logs only lengths/character codes, never the value.
+            clean=$(printf '%s\n' "$KEYSTORE_BASE64" | grep -v -- '-----' | tr -- '-_' '+/' | tr -cd 'A-Za-z0-9+/=')
+            stray=$(printf '%s' "$KEYSTORE_BASE64" | LC_ALL=C tr -d 'A-Za-z0-9+/=' | od -An -v -tx1 | tr -s ' \n' ' ' | xargs -n1 | sort -u | tr '\n' ' ')
+            echo "Secret: ${#KEYSTORE_BASE64} chars, ${#clean} base64 chars; stray byte values (hex): ${stray:-none}"
+            printf '%s' "$clean" | base64 -di > "$RUNNER_TEMP/release.jks"
+            echo "Decoded keystore: $(stat -c %s "$RUNNER_TEMP/release.jks") bytes, starts with $(head -c4 "$RUNNER_TEMP/release.jks" | od -An -tx1)"
             keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$RELEASE_KEYSTORE_PASSWORD" > /dev/null \
               || { echo "::error::Keystore decoded but keytool can't open it with RELEASE_KEYSTORE_PASSWORD"; exit 1; }
             echo "RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
