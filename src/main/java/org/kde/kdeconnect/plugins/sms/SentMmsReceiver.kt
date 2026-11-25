@@ -31,13 +31,13 @@ import java.util.concurrent.atomic.AtomicInteger
 class SentMmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val token = intent.getStringExtra(EXTRA_TOKEN) ?: return
-        val pending = this.pending.remove(token)
+        val info = sent.remove(token)
         if (resultCode != Activity.RESULT_OK) {
             Log.w(TAG, "MMS not sent (result $resultCode)")
-            pending?.file?.delete()
+            info?.file?.delete()
             return
         }
-        if (pending == null) {
+        if (info == null) {
             Log.w(TAG, "MMS sent, but its details were lost (app restarted?): can't check it was saved")
             return
         }
@@ -45,28 +45,28 @@ class SentMmsReceiver : BroadcastReceiver() {
         val async = goAsync()
         Thread {
             try {
-                check(app, pending)
+                check(app, info)
             } catch (e: Exception) {
                 Log.e(TAG, "Checking a sent MMS", e)
             } finally {
-                pending.file.delete()
+                info.file.delete()
                 async.finish()
             }
         }.start()
     }
 
-    private fun check(context: Context, sent: Pending) {
+    private fun check(context: Context, info: Pending) {
         // Android saves it before it reports it sent; allow a few seconds for slower phones
         val deadline = System.currentTimeMillis() + STORE_WAIT_MS
         while (true) {
-            if (isStored(context, sent.dateSeconds)) return
+            if (isStored(context, info.dateSeconds)) return
             if (System.currentTimeMillis() >= deadline) break
             Thread.sleep(500)
         }
         Log.i(TAG, "Sent MMS not in the message database: saving it ourselves")
         try {
             val uri = PduPersister.getPduPersister(context)
-                .persist(sent.req, Telephony.Mms.Sent.CONTENT_URI, true, sent.group, null)
+                .persist(info.req, Telephony.Mms.Sent.CONTENT_URI, true, info.group, null, info.subId)
             // Android answers a write it refused (no WRITE_SMS app-op) with an id of 0, not an error
             if ((uri?.lastPathSegment?.toLongOrNull() ?: 0L) <= 0L) refused(context)
         } catch (e: Exception) {
@@ -90,20 +90,20 @@ class SentMmsReceiver : BroadcastReceiver() {
         true
     }
 
-    private class Pending(val req: SendReq, val group: Boolean, val file: File, val dateSeconds: Long)
+    private class Pending(val req: SendReq, val group: Boolean, val subId: Int, val file: File, val dateSeconds: Long)
 
     companion object {
         private const val TAG = "SentMmsReceiver"
         private const val EXTRA_TOKEN = "kdeconnect.mms.sent.token"
         private const val STORE_WAIT_MS = 5_000L
         private const val CLOCK_SLACK_S = 5L
-        private val pending = ConcurrentHashMap<String, Pending>()
+        private val sent = ConcurrentHashMap<String, Pending>()
         private val requestCodes = AtomicInteger(0)
 
         /** The intent Android sends when [req] has gone out (or failed); it then also deletes [file] */
-        fun pendingIntent(context: Context, req: SendReq, group: Boolean, file: File): PendingIntent {
+        fun pendingIntent(context: Context, req: SendReq, group: Boolean, subId: Int, file: File): PendingIntent {
             val token = "${System.nanoTime()}:${file.name}"
-            pending[token] = Pending(req, group, file, req.date)
+            sent[token] = Pending(req, group, subId, file, req.date)
             val intent = Intent(context, SentMmsReceiver::class.java).putExtra(EXTRA_TOKEN, token)
             return PendingIntent.getBroadcast(
                 context, REQUEST_CODE_BASE + requestCodes.incrementAndGet() % 1000, intent,

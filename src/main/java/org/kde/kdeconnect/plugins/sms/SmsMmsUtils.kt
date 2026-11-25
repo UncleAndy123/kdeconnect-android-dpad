@@ -241,7 +241,7 @@ object SmsMmsUtils {
         }
 
         // Told when it has gone out, to check the phone saved it (see SentMmsReceiver)
-        val sentIntent = SentMmsReceiver.pendingIntent(context, sendReq, klinkerSettings.group, mSendFile)
+        val sentIntent = SentMmsReceiver.pendingIntent(context, sendReq, klinkerSettings.group, klinkerSettings.subscriptionId, mSendFile)
         mSmsManager.sendMultimediaMessage(context, contentUri, null, configOverrides, sentIntent)
     }
 
