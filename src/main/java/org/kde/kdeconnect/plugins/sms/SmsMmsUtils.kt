@@ -240,7 +240,9 @@ object SmsMmsUtils {
             }
         }
 
-        mSmsManager.sendMultimediaMessage(context, contentUri, null, configOverrides, null)
+        // Told when it has gone out, to check the phone saved it (see SentMmsReceiver)
+        val sentIntent = SentMmsReceiver.pendingIntent(context, sendReq, klinkerSettings.group, mSendFile)
+        mSmsManager.sendMultimediaMessage(context, contentUri, null, configOverrides, sentIntent)
     }
 
     const val DEFAULT_EXPIRY_TIME: Long = (7 * 24 * 60 * 60).toLong()
